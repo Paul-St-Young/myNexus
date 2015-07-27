@@ -1565,7 +1565,7 @@ class Taub(Supercomputer):
     
     def write_job_header(self,job):
         if job.queue is None:
-            job.queue='cse'
+            job.queue='secondary'
         #end if
         c=''
         c+='#PBS -q '+job.queue+'\n'
@@ -1585,8 +1585,6 @@ export MPICH_MAX_SHORT_MSG_SIZE=1024
 export MPICH_PTL_UNEX_EVENTS=800000
 export MPICH_UNEX_BUFFER_SIZE=16M
 export MPI_MSGS_PER_PROC=32768
-
-module load mvapich2/1.6-intel
 '''
         return c
     #end def write_job_header
@@ -2105,7 +2103,7 @@ for cores in range(1,128+1):
 #            nodes sockets cores ram qslots  qlaunch  qsubmit     qstatus   qdelete
 Jaguar(      18688,   2,     8,   32,  100,  'aprun',   'qsub',   'qstat',    'qdel')
 Kraken(       9408,   2,     6,   16,  100,  'aprun',   'qsub',   'qstat',    'qdel')
-Taub(          400,   2,     6,   24,   50, 'mpirun',   'qsub',   'qstat',    'qdel')
+Taub(          312,   2,    10,   64,   50, 'mpirun',   'qsub',   'qstat',    'qdel')
 OIC5(           28,   2,    16,  128, 1000, 'mpirun',   'qsub',   'qstat',    'qdel')
 Hopper(       6384,   2,    12,   64, 1000,  'aprun',   'qsub',   'qstat',    'qdel')
 Edison(        664,   2,    12,   64,  100,  'aprun',   'qsub',   'qstat',    'qdel')
