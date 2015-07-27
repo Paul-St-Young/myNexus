@@ -3552,14 +3552,13 @@ def generate_hamiltonian(name         = 'h0',
         if particles.count_ions()>0:
             pairpots.append(coulomb(name='IonIon',type='coulomb',source=iname,target=iname))
             ions = particles.get_ions()
-            # hack to run He
-            pairpots.append(coulomb(name='ElecIon',type='coulomb',source=iname,target=ename))
-            ''' hack to run He
-            if not system.pseudized:
+            #if not system.pseudized: # hack to run he
+            if ppfiles is None or len(ppfiles)==0:
                 pairpots.append(coulomb(name='ElecIon',type='coulomb',source=iname,target=ename))
             else:
-                if ppfiles is None or len(ppfiles)==0:
-                    QmcpackInput.class_error('cannot generate hamiltonian\n  system is pseudized, but no pseudopotentials have been provided\n  please provide pseudopotential files via the pseudos keyword')
+                # hack to run He
+                #if ppfiles is None or len(ppfiles)==0:
+                    #QmcpackInput.class_error('cannot generate hamiltonian\n  system is pseudized, but no pseudopotentials have been provided\n  please provide pseudopotential files via the pseudos keyword')
                 #end if
                 if isinstance(ppfiles,list):
                     pplist = ppfiles
@@ -3587,7 +3586,6 @@ def generate_hamiltonian(name         = 'h0',
                 pp = pseudopotential(name='PseudoPot',type='pseudo',source=iname,wavefunction=wfname,format=format,pseudos=pseudos)
                 pairpots.append(pp)
             #end if
-            '''
         #end if
     #end if
 
