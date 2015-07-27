@@ -3552,6 +3552,9 @@ def generate_hamiltonian(name         = 'h0',
         if particles.count_ions()>0:
             pairpots.append(coulomb(name='IonIon',type='coulomb',source=iname,target=iname))
             ions = particles.get_ions()
+            # hack to run He
+            pairpots.append(coulomb(name='ElecIon',type='coulomb',source=iname,target=ename))
+            ''' hack to run He
             if not system.pseudized:
                 pairpots.append(coulomb(name='ElecIon',type='coulomb',source=iname,target=ename))
             else:
@@ -3584,6 +3587,7 @@ def generate_hamiltonian(name         = 'h0',
                 pp = pseudopotential(name='PseudoPot',type='pseudo',source=iname,wavefunction=wfname,format=format,pseudos=pseudos)
                 pairpots.append(pp)
             #end if
+            '''
         #end if
     #end if
 
