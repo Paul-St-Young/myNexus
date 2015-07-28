@@ -77,7 +77,7 @@ class ProjectManager(Pobj):
                 ipoll = 0
                 while len(self.progressing_cascades)>0:
                     self.dlog('\n\n\n'+70*'=',n=1)
-                    self.log('poll',ipoll,' memory %3.2f MB'%(memory.resident()/1e6),n=1)
+                    #self.log('poll',ipoll,' memory %3.2f MB'%(memory.resident()/1e6),n=1)
                     Pobj.wrote_something = False
                     self.dlog('cascades',self.progressing_cascades.keys(),n=2)
                     ipoll+=1
