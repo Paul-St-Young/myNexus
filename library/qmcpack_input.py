@@ -1683,6 +1683,18 @@ class structurefactor(QIxml):
     identifier  = 'name'
 #end class structurefactor
 
+class forward_walking(QIxml):
+    tag = 'estimator'
+    attributes  = ['type','name']
+    identifier  = 'name'
+    elements = ['observable']
+#end class forward_walking
+
+class observable(QIxml):
+    attributes = ['name','max','frequency']
+    identifier = 'name'
+# end class observable
+
 estimator = QIxmlFactory(
     name  = 'estimator',
     types = dict(localenergy         = localenergy,
@@ -1821,7 +1833,7 @@ classes = [   #standard classes
     correlation,coefficients,loop,linear,cslinear,vmc,dmc,
     atomicbasisset,basisgroup,init,var,traces,scalar_traces,particle_traces,array_traces,
     reference_points,nearestneighbors,neighbor_trace,dm1b,
-    coefficient,radfunc,spindensity,structurefactor,
+    coefficient,radfunc,spindensity,structurefactor,forward_walking,observable,
     sposet,bspline_builder,composite_builder,heg_builder
     ]
 types = dict( #simple types and factories
@@ -1854,7 +1866,8 @@ plurals = obj(
     neighbor_traces = 'neighbor_trace',
     sposet_builders = 'sposet_builder',
     sposets         = 'sposet',
-    radfuncs        = 'radfunc'
+    radfuncs        = 'radfunc',
+    observables     = 'Observable'
     )
 plurals_inv = plurals.inverse()
 plural_names = set(plurals.keys())
@@ -1889,7 +1902,8 @@ Names.set_expanded_names(
     expandylm        = 'expandYlm',
     mo               = 'MO',
     numerical        = 'Numerical',
-    nearestneighbors = 'NearestNeighbors' 
+    nearestneighbors = 'NearestNeighbors',
+    observable       = 'Observable'
    )
 for c in classes:
     c.init_class()
