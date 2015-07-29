@@ -1683,17 +1683,30 @@ class structurefactor(QIxml):
     identifier  = 'name'
 #end class structurefactor
 
-class forward_walking(QIxml):
+class sk(QIxml):
     tag = 'estimator'
-    attributes  = ['type','name']
-    identifier  = 'name'
-    elements = ['observable']
-#end class forward_walking
+    attributes = ['name','type','hdf5']
+    identifier = 'name'
+    write_types = obj(hdf5=yesno)
+#end class sk
+
+class gofr(QIxml):
+    tag = 'estimator'
+    attributes = ['type','name','num_bin','rmax','source']
+    identifier = 'name'
+#end class gofr
+
+class forwardwalking(QIxml):
+    tag = 'estimator'
+    attributes = ['type','blocksize']
+    elements   = ['observable']
+    identifier = 'name'
+#end class forwardwalking
 
 class observable(QIxml):
     attributes = ['name','max','frequency']
     identifier = 'name'
-# end class observable
+#end class observable
 
 estimator = QIxmlFactory(
     name  = 'estimator',
@@ -1704,7 +1717,11 @@ estimator = QIxmlFactory(
                  nearestneighbors    = nearestneighbors,
                  dm1b                = dm1b,
                  spindensity         = spindensity,
-                 structurefactor     = structurefactor),
+                 structurefactor     = structurefactor,
+                 forwardwalking      = forwardwalking,
+                 sk                  = sk,
+                 gofr                = gofr,
+                ),
     typekey  = 'type',
     typekey2 = 'name'
     )
@@ -1833,8 +1850,8 @@ classes = [   #standard classes
     correlation,coefficients,loop,linear,cslinear,vmc,dmc,
     atomicbasisset,basisgroup,init,var,traces,scalar_traces,particle_traces,array_traces,
     reference_points,nearestneighbors,neighbor_trace,dm1b,
-    coefficient,radfunc,spindensity,structurefactor,forward_walking,observable,
-    sposet,bspline_builder,composite_builder,heg_builder
+    coefficient,radfunc,spindensity,structurefactor,forwardwalking,observable,
+    sposet,bspline_builder,composite_builder,heg_builder,sk,gofr
     ]
 types = dict( #simple types and factories
     host           = param,
