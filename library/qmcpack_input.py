@@ -14,7 +14,6 @@ from physical_system import PhysicalSystem
 from simulation import SimulationInput,SimulationInputTemplate
 from pwscf_input import array_to_string as pwscf_array_string
 from debug import *
-from debug import ci as interact
 
 
 yesno_dict     = {True:'yes' ,False:'no'}
@@ -141,42 +140,37 @@ class collection(hidden):
         #self.add(value)
     #end def __setitem__
 
-    def add(self,element,strict=True,key=None):
-        if key is None:
-            identifier = element.identifier
-            public = self.public()
-            missing_identifier = False
-            if not element.tag in plurals_inv and element.collection_id is None:
-                self.error('collection cannot be formed\n  encountered non-plural element\n  element class: {0}\n  element tag: {1}\n  tags allowed in a collection: {2}'.format(element.__class__.__name__,element.tag,sorted(plurals_inv.keys())))
-            elif identifier is None:
-                key = len(public)
-            elif isinstance(identifier,str):
-                if identifier in element:
-                    key = element[identifier]
-                else:
-                    missing_identifier = True
-                #end if
+    def add(self,element,strict=True):
+        identifier = element.identifier
+        public = self.public()
+        missing_identifier = False
+        if not element.tag in plurals_inv and element.collection_id is None:
+            self.error('collection cannot be formed\n  encountered non-plural element\n  element class: {0}\n  element tag: {1}\n  tags allowed in a collection: {2}'.format(element.__class__.__name__,element.tag,sorted(plurals_inv.keys())))
+        elif identifier is None:
+            key = len(public)
+        elif isinstance(identifier,str):
+            if identifier in element:
+                key = element[identifier]
             else:
-                key = ''
-                for ident in identifier:
-                    if ident in element:
-                        key+=element[ident]
-                    #end if
-                #end for
-                missing_identifier = key==''
+                missing_identifier = True
             #end if
-            if missing_identifier:
-                key = len(public)
-                #if strict:
-                #    self.error('collection cannot be formed\n  element is missing an identifier\n  element class: {0}\n  element tag: {1}\n  identifier looked for: {2}\n  element contents:\n{3}'.format(element.__class__.__name__,element.tag,identifier,str(element)))
-                #else:
-                #    return False
-                ##end if
-            #end if
+        else:
+            key = ''
+            for ident in identifier:
+                if ident in element:
+                    key+=element[ident]
+                #end if
+            #end for
+            missing_identifier = key==''
         #end if
-        #if key in public:
-        #    self.error('attempted to add duplicate key to collection: {0}\n keys present: {1}'.format(key,sorted(public.keys())))
-        ##end if
+        if missing_identifier:
+            key = len(public)
+            #if strict:
+            #    self.error('collection cannot be formed\n  element is missing an identifier\n  element class: {0}\n  element tag: {1}\n  identifier looked for: {2}\n  element contents:\n{3}'.format(element.__class__.__name__,element.tag,identifier,str(element)))
+            #else:
+            #    return False
+            ##end if
+        #end if
         public[key] = element
         self.hidden().order.append(key)
         return True
@@ -202,14 +196,6 @@ class collection(hidden):
         #end for
         return lst
     #end def list
-
-    def pairlist(self):
-        pairs = []
-        for key in self.hidden().order:
-            pairs.append((key,self[key]))
-        #end for
-        return pairs
-    #end def pairlist
 #end class collection
 
 
@@ -339,12 +325,7 @@ class QIxml(Names):
 
     def init_from_args(self,args):
         print
-        print 'In init from args (not implemented).'
-        print 'Possible reasons for incorrect entry:  '
-        print '  Is xml element {0} meant to be plural?'.format(self.__class__.__name__)
-        print '    If so, add it to the plurals object.'
-        print
-        print 'Arguments received:'
+        print 'in init from args (not implemented), args:'
         print args
         print
         self.not_implemented()
@@ -366,8 +347,6 @@ class QIxml(Names):
                          h5tags      = [],
                          types       = obj(),
                          write_types = obj(),
-                         attr_types  = None,
-                         precision   = None,
                          defaults    = obj(),
                          collection_id = None
                          )
@@ -396,7 +375,6 @@ class QIxml(Names):
 
 
     def write(self,indent_level=0,pad='   ',first=False):
-        param.set_precision(self.get_precision())
         self.check_junk(exit=True)
         indent  = indent_level*pad
         ip = indent+pad
@@ -494,7 +472,6 @@ class QIxml(Names):
             #end if
             c+=indent+'</'+expanded_tag+'>\n'
         #end if
-        param.reset_precision()
         return c
     #end def write
 
@@ -555,17 +532,7 @@ class QIxml(Names):
             #end if
         #end for
         junk = junk | set(junk_elem)
-        if QmcpackInput.profile_collection!=None:
-            self.collect_profile(xml,al,el,junk)
-        #end for
         self.check_junk(junk)
-        if self.attr_types!=None:
-            typed_attr = attr & set(self.attr_types.keys())
-            attr -= typed_attr
-            for a in typed_attr:
-                self[a] = self.attr_types[a](xml._attributes[al[a]])
-            #end for
-        #end if
         for a in attr:
             if a in self.write_types and self.write_types[a] in bool_write_types:
                 aval = xml._attributes[al[a]]
@@ -732,89 +699,9 @@ class QIxml(Names):
             for jname in junk:
                 msg+='    '+jname+'\n'
             #end for
-            #if QmcpackInput.profile_collection is None:
-            #    self.error(msg,'QmcpackInput',exit=exit,trace=exit)
-            ##end if
             self.error(msg,'QmcpackInput',exit=exit,trace=exit)
         #end if
     #end def check_junk
-
-
-    def collect_profile(self,xml,al,el,junk):
-        attributes = obj(**al)
-        parameters = obj()
-        elements   = obj()
-        for e,ecap in el.iteritems():
-            if e=='parameter':
-                parameters[e]=ecap
-            else:
-                elements[e]=ecap
-            #end if
-        #end for
-        profile = obj(
-            attributes = attributes,
-            parameters = parameters,
-            elements   = elements,
-            xml        = xml,
-            junk       = junk
-            )
-        #xml = xml.copy()
-        xname = xml._name
-        if xname[-1:].isdigit():
-            xname = xname[:-1]
-        elif xname[-2:].isdigit():
-            xname = xname[:-2]
-        #end if
-        #xml._name = xname
-
-        if len(profile.junk)>0:
-            print '  '+xname+' (found '+str(junk)+')'
-            for sector in 'attributes elements'.split():
-                missing = []
-                for n in profile.junk:
-                    if n in profile[sector]:
-                        missing.append(profile[sector][n])
-                    #end if
-                #end for
-                if len(missing)>0:
-                    ms= '    '+sector+':'
-                    for m in missing:
-                        ms+=' '+m
-                    #end for
-                    print ms
-                #end if
-            #end for
-            if 'parameter' in profile.xml:
-                params = obj()
-                for p in profile.xml.parameter:
-                    params[p.name.lower()] = p.text.strip()
-                #end for
-                missing = []
-                for n in profile.junk:
-                    if n in params:
-                        missing.append(n)
-                    #end if
-                #end for
-                if len(missing)>0:
-                    ms= '    parameters:'
-                    for m in missing:
-                        ms+=' '+m
-                    #end for
-                    print ms
-                #end if
-            #end if
-            if junk!=set(['analysis']) and junk!=set(['ratio']) and junk!=set(['randmo']) and junk!=set(['printeloc', 'source']) and junk!=set(['warmup_steps']) and junk!=set(['sposet_collection']) and junk!=set(['eigensolve', 'atom']) and junk!=set(['maxweight', 'reweightedvariance', 'unreweightedvariance', 'energy', 'exp0', 'stabilizerscale', 'minmethod', 'alloweddifference', 'stepsize', 'beta', 'minwalkers', 'nstabilizers', 'bigchange', 'usebuffer']) and junk!=set(['loop2']) and junk!=set(['random']) and junk!=set(['max_steps']):
-                exit()
-            #end if
-        #end if
-
-        pc = QmcpackInput.profile_collection
-        if not xname in pc:
-            pc[xname] = obj()
-        #end if
-        pc[xname].append(profile)
-    #end def collect_profile
-
 
 
     def get_single(self,preference):
@@ -1257,10 +1144,6 @@ class QIxml(Names):
     def get_host(self,names):
         return self.get(names,host=True)
     #end def get_host
-
-    def get_precision(self):
-        return self.__class__.__dict__['precision']
-    #end def get_precision
 #end class QIxml
 
 
@@ -1324,26 +1207,6 @@ class QIxmlFactory(Names):
 class Param(Names):        
     metadata = None
 
-    def __init__(self):
-        self.reset_precision()
-    #end def __init__
-
-    def reset_precision(self):
-        self.precision   = None
-        self.prec_format = None
-    #end def reset_precision
-
-    def set_precision(self,precision):
-        if precision is None:
-            self.reset_precision()
-        elif not isinstance(precision,str):
-            self.error('attempted to set precision with non-string: {0}'.format(precision))
-        else:
-            self.precision   = precision
-            self.prec_format = '{0:'+precision+'}'
-        #end if
-    #end def set_precision
-
     def __call__(self,*args,**kwargs):
         if len(args)==0:
             self.error('no arguments provided, should have recieved one XMLelement')
@@ -1395,7 +1258,7 @@ class Param(Names):
     def write(self,value,mode='attr',tag='parameter',name=None,pad='   ',write_type=None,normal_elem=False):
         c = ''
         attr_mode = mode=='attr'
-        elem_mode = mode=='elem'
+        elem_mode  = mode=='elem'
         if not attr_mode and not elem_mode:
             self.error(mode+' is not a valid mode.  Options are attr,elem.')
         #end if
@@ -1406,11 +1269,11 @@ class Param(Names):
             if isinstance(value,ndarray):
                 arr = value.ravel()
                 for v in arr:
-                    c+=self.write_val(v)+' '
+                    c+=str(v)+' '
                 #end for
                 c=c[:-1]
             else:
-                c = self.write_val(value)
+                c = str(value)
             #end if
         elif elem_mode:
             c+=pad
@@ -1426,7 +1289,7 @@ class Param(Names):
                 other=''
                 if name in self.metadata:
                     for a,v in self.metadata[name].iteritems():
-                        other +=' '+self.expand_name(a)+'="'+self.write_val(v)+'"'
+                        other +=' '+self.expand_name(a)+'="'+str(v)+'"'
                     #end for
                 #end if
                 c+='<'+tag+' name="'+name+'"'+other+rem_len*' '+'>'
@@ -1443,36 +1306,23 @@ class Param(Names):
                 #end if
                 ndim = len(value.shape)
                 if ndim==1:
-                    line_len = 70
                     if tag!=None:
                         c+=pp
                     #end if
-                    line = ''
                     for v in value:
-                        line+=self.write_val(v)+' '
-                        if len(line)>line_len:
-                            c+=line+'\n'
-                            line = ''
-                        #end if
+                        c+=str(v)+' '
                     #end for
-                    if len(line)>0:
-                        c+=line
-                    #end if
                     c=c[:-1]+'\n'
                 elif ndim==2:
                     nrows,ncols = value.shape
                     fmt=pp
                     if value.dtype == dtype(float):
-                        if self.precision is None:
-                            vfmt = ':16.8f' # must have 8 digits of post decimal accuracy to meet qmcpack tolerance standards
-                            #vfmt = ':16.8e'
-                        else:
-                            vfmt = ': '+self.precision
-                        #end if
+                        vfmt = ':16.8f' # must have 8 digits of post decimal accuracy to meet qmcpack tolerance standards
+                        #vfmt = ':16.8e'
                     else:
                         vfmt = ''
                     #end if
-                    for nc in xrange(ncols):
+                    for nc in range(ncols):
                         fmt+='{'+str(nc)+vfmt+'}  '
                     #end for
                     fmt = fmt[:-2]+'\n'
@@ -1489,7 +1339,7 @@ class Param(Names):
                     val = value
                 #end if
                 #c += '    '+str(val)
-                c += '    {0:<10}'.format(self.write_val(val))
+                c += '    {0:<10}'.format(str(val))
             #end if
             if tag!=None:
                 c+=pad+'</'+tag+'>\n'
@@ -1498,14 +1348,6 @@ class Param(Names):
         return c
     #end def write
             
-
-    def write_val(self,val):
-        if self.precision!=None and isinstance(val,float):
-            return self.prec_format.format(val)
-        else:
-            return str(val)
-        #end if
-    #end def write_val
 
     def init_class(self):
         None
@@ -1517,7 +1359,7 @@ param = Param()
 
 
 class simulation(QIxml):
-    elements   = ['project','random','include','qmcsystem','particleset','wavefunction','hamiltonian','init','traces','qmc','loop','mcwalkerset','cmc']
+    elements   = ['project','random','qmcsystem','particleset','wavefunction','hamiltonian','init','traces','qmc','loop']
     write_types = obj(random=yesno)
 #end class simulation
 
@@ -1531,55 +1373,35 @@ class application(QIxml):
     attributes = ['name','role','class','version']
 #end class application
 
-class host(QIxml):
-    text = 'value'
-#end class host
-
-class date(QIxml):
-    text = 'value'
-#end class date
-
-class user(QIxml):
-    text = 'value'
-#end class user
 
 class random(QIxml):
     attributes = ['seed','parallel']
     write_types= obj(parallel=truefalse)
 #end class random
 
-class include(QIxml):
-    attributes = ['href']
-#end def include
-
-class mcwalkerset(QIxml):
-    attributes = ['fileroot','version','collected','node','nprocs','href','target','file','walkers']
-    write_types = obj(collected=yesno)
-#end class mcwalkerset
 
 class qmcsystem(QIxml):
-    attributes = ['dim','wavefunction','hamiltonian']
-    elements = ['simulationcell','particleset','wavefunction','hamiltonian','random','init','mcwalkerset']
+    elements = ['simulationcell','particleset','wavefunction','hamiltonian']
 #end class qmcsystem
 
 
 
 class simulationcell(QIxml):
-    attributes = ['name','tilematrix']
-    parameters = ['lattice','reciprocal','bconds','lr_dim_cutoff','rs','nparticles','scale','uc_grid']
+    attributes = ['name']
+    parameters = ['lattice','reciprocal','bconds','lr_dim_cutoff','rs','nparticles']
 #end class simulationcell
 
 class particleset(QIxml):
-    attributes = ['name','size','random','random_source','randomsrc','charge','source']
-    elements   = ['group','simulationcell']
+    attributes = ['name','size','random','random_source','randomsrc','charge']
+    elements   = ['group']
     attribs    = ['ionid','position']
     write_types= obj(random=yesno)
     identifier = 'name'
 #end class particleset
 
 class group(QIxml):
-    attributes = ['name','size','mass'] # mass attr and param, bad bad bad!!!
-    parameters = ['charge','valence','atomicnumber','mass'] 
+    attributes = ['name','size']
+    parameters = ['charge','valence','atomicnumber','mass']
     attribs    = ['position']
     identifier = 'name'
 #end class group
@@ -1587,12 +1409,9 @@ class group(QIxml):
 
 
 class sposet(QIxml):
-    attributes = ['basisset','type','name','group','size',
+    attributes = ['type','name','group','size',
                   'index_min','index_max','energy_min','energy_max',
-                  'spindataset','cuspinfo','sort','gpu','href','twistnum',
-                  'gs_sposet','basis_sposet','same_k','frequency','mass',
-                  'source','version','precision','tilematrix']
-    elements   = ['occupation','coefficient','coefficients']
+                  'spindataset']
     text       = 'spos'
     identifier = 'name'
 #end class sposet
@@ -1602,7 +1421,7 @@ class bspline_builder(QIxml):
     identifier  = 'type'
     attributes  = ['type','href','sort','tilematrix','twistnum','twist','source',
                    'version','meshfactor','gpu','transform','precision','truncate',
-                   'lr_dim_cutoff','shell','randomize','key','buffer','rmax_core','dilation','tag']
+                   'lr_dim_cutoff','shell','randomize','key','buffer','rmax_core','dilation']
     elements    = ['sposet']
     write_types = obj(gpu=yesno,sort=onezero,transform=yesno,truncate=yesno,randomize=truefalse)
 #end class bspline_builder
@@ -1614,17 +1433,9 @@ class heg_builder(QIxml):
     elements   = ['sposet']
 #end class heg_builder
 
-class molecular_orbital_builder(QIxml):
-    tag = 'sposet_builder'
-    identifier = 'type'
-    attributes = ['name','type','transform','source','cuspcorrection']
-    elements   = ['basisset','sposet'] 
-#end class molecular_orbital_builder
-
 class composite_builder(QIxml):
     tag = 'sposet_builder'
     identifier = 'type'
-    attributes = ['type']
     elements   = ['sposet']
 #end class composite_builder
 
@@ -1633,139 +1444,79 @@ sposet_builder = QIxmlFactory(
     types   = dict(bspline=bspline_builder,
                    einspline=bspline_builder,
                    heg=heg_builder,
-                   composite=composite_builder,
-                   molecularorbital = molecular_orbital_builder),
+                   composite=composite_builder),
     typekey = 'type'
     )
 
 
 
 class wavefunction(QIxml):
-    attributes = ['name','target','id','ref']
+    attributes = ['name','target','id']
     elements   = ['sposet_builder','determinantset','jastrow']
     identifier = 'name','id'
 #end class wavefunction
 
 class determinantset(QIxml):
-    attributes = ['type','href','sort','tilematrix','twistnum','twist','source','version','meshfactor','gpu','transform','precision','truncate','lr_dim_cutoff','shell','randomize','key','rmax_core','dilation','name','cuspcorrection','tiling','usegrid','meshspacing','shell2','src','buffer','bconds','keyword']
-    elements   = ['basisset','sposet','slaterdeterminant','multideterminant','spline','backflow','cubicgrid']
-    h5tags     = ['twistindex','twistangle','rcut']
-    write_types = obj(gpu=yesno,sort=onezero,transform=yesno,truncate=yesno,randomize=truefalse,cuspcorrection=yesno,usegrid=yesno)
+    attributes = ['type','href','sort','tilematrix','twistnum','twist','source','version','meshfactor','gpu','transform','precision','truncate','lr_dim_cutoff','shell','randomize','key','rmax_core','dilation','name']
+    elements   = ['basisset','slaterdeterminant']
+    h5tags     = ['twistindex','twistangle']
+    write_types = obj(gpu=yesno,sort=onezero,transform=yesno,truncate=yesno,randomize=truefalse)
 #end class determinantset
 
-class spline(QIxml):
-    attributes = ['method']
-    elements   = ['grid']
-#end class spline
-
-class cubicgrid(QIxml):
-    attributes = ['method']
-    elements   = ['grid']
-#end class cubicgrid
-
 class basisset(QIxml):
-    attributes = ['ecut','name','ref','type','source','transform','key']
+    attributes = ['ecut','name']
     elements   = ['grid','atomicbasisset']
-    write_types = obj(transform=yesno)
 #end class basisset
 
 class grid(QIxml):
-    attributes = ['dir','npts','closed','type','ri','rf','rc','step']
+    attributes = ['dir','npts','closed','type','ri','rf']
     #identifier = 'dir'
 #end class grid
 
 class atomicbasisset(QIxml):
     attributes = ['type','elementtype','expandylm','href','normalized','name','angular']
     elements   = ['grid','basisgroup']
-    identifier = 'elementtype'
-    write_types= obj(#expandylm=yesno,
-                     normalized=yesno)
+    write_types= obj(expandylm=yesno,normalized=yesno)
 #end class atomicbasisset
 
 class basisgroup(QIxml):
-    attributes = ['rid','ds','n','l','m','zeta','type','s','imin','source']
-    parameters = ['b']
+    attributes = ['rid','ds','n','l','m','zeta','type']
     elements   = ['radfunc']
-    #identifier = 'rid'
 #end class basisgroup
 
 class radfunc(QIxml):
-    attributes = ['exponent','node','contraction','id','type']
-    precision  = '16.12e'
+    attributes = ['exponent','node','contraction']
 #end class radfunc
 
 class slaterdeterminant(QIxml):
-    attributes = ['optimize']
     elements   = ['determinant']
-    write_types = obj(optimize=yesno)
 #end class slaterdeterminant
 
 class determinant(QIxml):
-    attributes = ['id','group','sposet','size','ref','spin','href','orbitals','spindataset','name','cuspinfo','debug']
+    attributes = ['id','group','sposet','size','ref','spin']
     elements   = ['occupation','coefficient']
     identifier = 'id'
-    write_types = obj(debug=yesno)
 #end class determinant
 
 class occupation(QIxml):
-    attributes = ['mode','spindataset','size','pairs','format']
+    attributes = ['mode','spindataset']
 #end class occupation
-
-class multideterminant(QIxml):
-    attributes = ['optimize','spo_up','spo_dn']
-    elements   = ['detlist']
-#end class multideterminant
-
-class detlist(QIxml):
-    attributes = ['size','type','nca','ncb','nea','neb','nstates','cutoff']
-    elements   = ['ci','csf']
-#end class detlist
-
-class ci(QIxml):
-    attributes = ['id','coeff','qc_coeff','alpha','beta']
-    #identifier = 'id'
-    attr_types = obj(alpha=str,beta=str)
-    precision  = '16.12e'
-#end class ci
-
-class csf(QIxml):
-    attributes = ['id','exctlvl','coeff','qchem_coeff','occ']
-    elements   = ['det']
-    attr_types = obj(occ=str)
-#end class csf
-
-class det(QIxml):
-    attributes = ['id','coeff','alpha','beta']
-    attr_types = obj(alpha=str,beta=str)
-#end class det
-
-class backflow(QIxml):
-    attributes = ['optimize']
-    elements   = ['transformation']
-    write_types = obj(optimize=yesno)
-#end class backflow
-
-class transformation(QIxml):
-    attributes = ['name','type','function','source']
-    elements   = ['correlation']
-    identifier = 'name'
-#end class transformation
 
 class jastrow1(QIxml):
     tag = 'jastrow'
-    attributes = ['type','name','function','source','print','spin','transform']
-    elements   = ['correlation','distancetable','grid']
+    attributes = ['type','name','function','source','print']
+    elements   = ['correlation']
     identifier = 'name'
-    write_types = obj(print_=yesno,spin=yesno,transform=yesno)
+    write_types = obj(print_=yesno)
 #end class jastrow1
 
 class jastrow2(QIxml):
     tag = 'jastrow'
-    attributes = ['type','name','function','print','spin','init','kc','transform','source','optimize']
-    elements   = ['correlation','distancetable','basisset','grid','basisgroup']
-    parameters = ['b','longrange']
+    attributes = ['type','name','function','print','spin']
+    elements   = ['correlation']
+    parameters = ['b']
     identifier = 'name'
-    write_types = obj(print_=yesno,transform=yesno,optimize=yesno)
+    write_types = obj(print_=yesno)
 #end class jastrow2
 
 class jastrow3(QIxml):
@@ -1776,57 +1527,39 @@ class jastrow3(QIxml):
     write_types = obj(print_=yesno)
 #end class jastrow3
 
-class kspace_jastrow(QIxml):
-    tag = 'jastrow'
-    attributes = ['type','name','source','function','optimize','symmetry']
-    elements   = ['correlation']
-    identifier = 'name'
-    write_types = obj(optimize=yesno)
-#end class kspace_jastrow
-
 class correlation(QIxml):
     attributes = ['elementtype','speciesa','speciesb','size','ispecies','especies',
-                  'especies1','especies2','isize','esize','rcut','cusp','pairtype',
-                  'kc','type','symmetry','cutoff','spindependent','dimension','init',
-                  'species']
-    parameters = ['a','b','c','d']
-    elements   = ['coefficients','var','coefficient']
+                  'especies1','especies2','isize','esize','rcut','cusp']
+    elements   = ['coefficients','var']
     identifier = 'speciesa','speciesb','elementtype','especies1','especies2','ispecies'
-    write_types = obj(init=yesno)
 #end class correlation
 
 class var(QIxml):
-    attributes = ['id','name','optimize']
+    attributes = ['id','name']
     text       = 'value'
     identifier = 'id'
-    write_types=obj(optimize=yesno)
 #end class var
 
 class coefficients(QIxml):
-    attributes = ['id','type','optimize','state','size','cusp','rcut']
+    attributes = ['id','type','optimize']
     text       = 'coeff'
     write_types= obj(optimize=yesno)
 #end class coefficients
 
-class coefficient(QIxml):  # this is bad!!! coefficients/coefficient
-    attributes = ['id','type','size','dataset']
+class coefficient(QIxml):  # this is bad!! coefficients/coefficient
+    attributes = ['id','type','size']
     text       = 'coeff'
-    precision  = '16.12e'
 #end class coefficient
-
-class distancetable(QIxml):
-    attributes = ['source','target']
-#end class distancetable
 
 jastrow = QIxmlFactory(
     name = 'jastrow',
-    types   = dict(one_body=jastrow1,two_body=jastrow2,jastrow1=jastrow1,jastrow2=jastrow2,eei=jastrow3,jastrow3=jastrow3,kspace=kspace_jastrow),
+    types   = dict(one_body=jastrow1,two_body=jastrow2,jastrow1=jastrow1,jastrow2=jastrow2,eei=jastrow3,jastrow3=jastrow3),
     typekey = 'type'
     )
 
 
 class hamiltonian(QIxml):
-    attributes = ['name','type','target','default'] 
+    attributes = ['name','type','target'] 
     elements   = ['pairpot','constant','estimator']
     identifier = 'name'
 #end class hamiltonian
@@ -1839,21 +1572,18 @@ class coulomb(QIxml):
 #end class coulomb
 
 class constant(QIxml):
-    attributes = ['type','name','source','target','forces']
-    write_types= obj(forces=yesno)
+    attributes = ['type','name','source','target']
 #end class constant
 
 class pseudopotential(QIxml):
     tag = 'pairpot'
-    attributes = ['type','name','source','wavefunction','format','target','forces']
+    attributes = ['type','name','source','wavefunction','format']
     elements   = ['pseudo']
-    write_types= obj(forces=yesno)
     identifier = 'name'
 #end class pseudopotential
 
 class pseudo(QIxml):
-    attributes = ['elementtype','href','format','cutoff','lmax','nrule']
-    elements   = ['header','local','grid']
+    attributes = ['elementtype','href','format']
     identifier = 'elementtype'
 #end class pseudo
 
@@ -1864,33 +1594,13 @@ class mpc(QIxml):
     identifier='name'
 #end class mpc
 
-class cpp(QIxml):
-    tag = 'pairpot'
-    attributes = ['type','name','source','target']
-    elements   = ['element']
-    identifier = 'name'
-#end class cpp
-
-class element(QIxml):
-    attributes = ['name','alpha','rb']
-#end class element
-
 pairpot = QIxmlFactory(
     name  = 'pairpot',
     types = dict(coulomb=coulomb,pseudo=pseudopotential,
-                 pseudopotential=pseudopotential,mpc=mpc,
-                 cpp=cpp),
+                 pseudopotential=pseudopotential,mpc=mpc),
     typekey = 'type'
     )
 
-
-class header(QIxml):
-    attributes = ['symbol','atomic-number','zval']
-#end class header
-
-class local(QIxml):
-    elements = ['grid']
-#end class local
 
 
 class localenergy(QIxml):
@@ -1928,7 +1638,7 @@ class axis(QIxml):
 
 class chiesa(QIxml):
     tag = 'estimator'
-    attributes = ['name','type','source','psi','wavefunction','target']
+    attributes = ['name','type','source','psi']
     identifier = 'name'
 #end class chiesa
 
@@ -1973,59 +1683,17 @@ class structurefactor(QIxml):
     identifier  = 'name'
 #end class structurefactor
 
-class force(QIxml):
+class forward_walking(QIxml):
     tag = 'estimator'
-    attributes = ['type','name','mode','source','species','target']
-    parameters = ['rcut','nbasis','weightexp']
+    attributes  = ['type','name']
+    identifier  = 'name'
+    elements = ['observable']
+#end class forward_walking
+
+class observable(QIxml):
+    attributes = ['name','max','frequency']
     identifier = 'name'
-#end class force
-
-class forwardwalking(QIxml):
-    tag = 'estimator'
-    attributes = ['type','blocksize']
-    elements   = ['observable']
-    identifier = 'name'
-#end class forwardwalking
-
-class pressure(QIxml):
-    tag = 'estimator'
-    attributes = ['type','potential','etype','function']
-    parameters = ['kc']
-    identifier = 'type'
-#end class pressure
-
-class dmccorrection(QIxml):
-    tag = 'estimator'
-    attributes = ['type','blocksize','max','frequency']
-    elements   = ['observable']
-    identifier = 'type'
-#end class dmccorrection
-
-class nofk(QIxml):
-    tag = 'estimator'
-    attributes = ['type','name','wavefunction']
-    identifier = 'name'
-#end class nofk
-
-class mpc_est(QIxml):
-    tag = 'estimator'
-    attributes = ['type','name','physical']
-    write_types = obj(physical=yesno)
-    identifier = 'name'
-#end class mpc_est
-
-class sk(QIxml):
-    tag = 'estimator'
-    attributes = ['name','type','hdf5']
-    identifier = 'name'
-    write_types = obj(hdf5=yesno)
-#end class sk
-
-class gofr(QIxml):
-    tag = 'estimator'
-    attributes = ['type','name','num_bin','rmax']
-    identifier = 'name'
-#end class gofr
+# end class observable
 
 estimator = QIxmlFactory(
     name  = 'estimator',
@@ -2036,26 +1704,10 @@ estimator = QIxmlFactory(
                  nearestneighbors    = nearestneighbors,
                  dm1b                = dm1b,
                  spindensity         = spindensity,
-                 structurefactor     = structurefactor,
-                 force               = force,
-                 forwardwalking      = forwardwalking,
-                 pressure            = pressure,
-                 dmccorrection       = dmccorrection,
-                 nofk                = nofk,
-                 mpc                 = mpc_est,
-                 sk                  = sk,
-                 gofr                = gofr,
-                 ),
+                 structurefactor     = structurefactor),
     typekey  = 'type',
     typekey2 = 'name'
     )
-
-
-class observable(QIxml):
-    attributes = ['name','max','frequency']
-    identifier = 'name'
-#end class observable
-
 
 
 class init(QIxml):
@@ -2089,18 +1741,13 @@ class traces(QIxml):
     write_types = obj(write_=yesno,verbose=yesno,scalar=yesno,array=yesno,
                       scalar_defaults=yesno,array_defaults=yesno,
                       particle=yesno,particle_defaults=yesno)
-#end class traces
-
-
-class record(QIxml):
-    attributes = ['name','stride']
-#end class record
+#end class
 
 
 class loop(QIxml):
     collection_id = 'qmc'
     attributes = ['max']
-    elements = ['qmc','init']
+    elements = ['qmc']
     def unroll(self):
         calculations=[]
         calcs = []
@@ -2118,52 +1765,6 @@ class loop(QIxml):
     #end def unroll
 #end class loop
 
-
-class optimize(QIxml):
-    text = 'parameters'
-#end class optimize
-
-class cg_optimizer(QIxml):
-    tag        = 'optimizer'
-    attributes = ['method']
-    parameters = ['max_steps','tolerance','stepsize','friction','epsilon',
-                  'xybisect','verbose','max_linemin','tolerance_g','length_cg',
-                  'rich','xypolish','gfactor']
-#end class cg_optimizer
-
-class flex_optimizer(QIxml):
-    tag        = 'optimizer'
-    attributes = ['method']
-    parameters = ['max_steps','tolerance','stepsize','epsilon',
-                  'xybisect','verbose','max_linemin','tolerance_g','length_cg',
-                  'rich','xypolish','gfactor']
-#end class flex_optimizer
-
-
-
-optimizer = QIxmlFactory(
-    name    = 'optimizer',
-    types   = dict(cg=cg_optimizer,flexopt=flex_optimizer),
-    typekey = 'method',
-    )
-
-
-
-class optimize_qmc(QIxml):
-    collection_id = 'qmc'
-    tag = 'qmc'
-    attributes = ['method','move','renew','completed','checkpoint','gpu']
-    parameters = ['blocks','steps','timestep','walkers','minwalkers','useweight',
-                  'power','correlation','maxweight','usedrift','min_walkers',
-                  'minke','samples','warmupsteps','minweight','warmupblocks',
-                  'maxdispl','tau','tolerance','stepsize','epsilon',
-                  'en_ref','usebuffer','substeps','stepsbetweensamples',
-                  'samplesperthread','max_steps','nonlocalpp']
-    elements = ['optimize','optimizer','estimator']
-    costs    = ['energy','variance','difference','weight','unreweightedvariance','reweightedvariance']
-    write_types = obj(renew=yesno,completed=yesno)
-#end class optimize_qmc
-
 class linear(QIxml):
     collection_id = 'qmc'
     tag = 'qmc'
@@ -2173,12 +1774,9 @@ class linear(QIxml):
                   'samples','minwalkers','maxweight','usedrift','minmethod',
                   'beta','exp0','bigchange','alloweddifference','stepsize',
                   'stabilizerscale','nstabilizers','max_its','cgsteps','eigcg',
-                  'walkers','nonlocalpp','usebuffer','gevmethod','steps','substeps',
-                  'stabilizermethod','rnwarmupsteps','walkersperthread','minke',
-                  'gradtol','alpha','tries','min_walkers','samplesperthread',
-                  'use_nonlocalpp_deriv']
-    costs      = ['energy','unreweightedvariance','reweightedvariance','variance','difference']
-    write_types = obj(gpu=yesno,usedrift=yesno,nonlocalpp=yesno,usebuffer=yesno,use_nonlocalpp_deriv=yesno)
+                  'walkers','nonlocalpp','usebuffer','gevmethod','steps','substeps']
+    costs      = ['energy','unreweightedvariance','reweightedvariance']
+    write_types = obj(gpu=yesno,usedrift=yesno,nonlocalpp=yesno,usebuffer=yesno)
 #end class linear
 
 class cslinear(QIxml):
@@ -2189,8 +1787,7 @@ class cslinear(QIxml):
     parameters = ['blocks','warmupsteps','stepsbetweensamples','steps','samples','timestep','usedrift',
                   'minmethod','gevmethod','exp0','nstabilizers','stabilizerscale',
                   'stepsize','alloweddifference','beta','bigchange','minwalkers',
-                  'usebuffer','maxweight','nonlocalpp','max_its','walkers','substeps',
-                  'stabilizermethod','cswarmupsteps','alpha_error','gevsplit','beta_error']
+                  'usebuffer','maxweight','nonlocalpp','max_its','walkers','substeps']
     costs      = ['energy','unreweightedvariance','reweightedvariance']
     write_types = obj(gpu=yesno,usedrift=yesno,nonlocalpp=yesno,usebuffer=yesno)
 #end class cslinear
@@ -2198,60 +1795,27 @@ class cslinear(QIxml):
 class vmc(QIxml):
     collection_id = 'qmc'
     tag = 'qmc'
-    attributes = ['method','multiple','warp','move','gpu','checkpoint','trace','target','completed','id']
-    elements   = ['estimator','record']
-    parameters = ['walkers','blocks','steps','substeps','timestep','usedrift','warmupsteps','samples','nonlocalpp','stepsbetweensamples','samplesperthread','tau','walkersperthread','reconfiguration','dmcwalkersperthread','current','ratio','firststep','minimumtargetwalkers']
-    write_types = obj(gpu=yesno,usedrift=yesno,nonlocalpp=yesno,reconfiguration=yesno,ratio=yesno,completed=yesno)
+    attributes = ['method','multiple','warp','move','gpu','checkpoint','trace','target']
+    elements   = ['estimator']
+    parameters = ['walkers','blocks','steps','substeps','timestep','usedrift','warmupsteps','samples','nonlocalpp','stepsbetweensamples','samplesperthread']
+    write_types = obj(gpu=yesno,usedrift=yesno,nonlocalpp=yesno)
 #end class vmc
 
 class dmc(QIxml):
     collection_id = 'qmc'
     tag = 'qmc'
-    attributes = ['method','move','gpu','multiple','warp','checkpoint','trace','target','completed','id','continue']
+    attributes = ['method','move','gpu','multiple','warp','checkpoint','trace']
     elements   = ['estimator']
-    parameters = ['walkers','blocks','steps','timestep','nonlocalmove','nonlocalmoves','warmupsteps','pop_control','reconfiguration','targetwalkers','minimumtargetwalkers','sigmabound','energybound','feedback','recordwalkers','fastgrad','popcontrol','branchinterval','usedrift','storeconfigs','en_ref','tau','alpha','gamma','stepsbetweensamples','max_branch','killnode','swap_walkers','swap_trigger']
-    write_types = obj(gpu=yesno,nonlocalmoves=yesno,reconfiguration=yesno,fastgrad=yesno,completed=yesno,killnode=yesno,swap_walkers=yesno)
+    parameters = ['walkers','blocks','steps','timestep','nonlocalmove','nonlocalmoves','warmupsteps','pop_control']
+    write_types = obj(gpu=yesno,nonlocalmoves=yesno)
 #end class dmc
-
-class rmc(QIxml):
-    collection_id = 'qmc'
-    tag = 'qmc'
-    attributes = ['method','multiple','target','observables','target','warp']
-    parameters = ['blocks','steps','chains','cuts','bounce','clone','walkers','timestep','trunclength','maxtouch','mass','collect']
-    elements = ['qmcsystem']
-    write_types = obj(collect=yesno)
-#end class rmc
-
-class test(QIxml):
-    collection_id = 'qmc'
-    tag = 'qmc'
-    attributes = ['method','checkpoint', 'gpu', 'move', 'multiple', 'warp']
-    parameters = ['ratio','walkers','clone','source']
-    #elements   = ['printeloc','source']
-    write_types = obj(ratio=yesno,clone=yesno)
-#end class test    
-
-class setparams(QIxml):
-    collection_id = 'qmc'
-    tag = 'qmc'
-    attributes = ['method','move','checkpoint','gpu']
-    parameters = ['alpha','blocks','warmupsteps','stepsbetweensamples','timestep','samples','usedrift']
-    elements   = ['estimator']
-#end class setparams    
 
 qmc = QIxmlFactory(
     name = 'qmc',
-    types   = dict(linear=linear,cslinear=cslinear,vmc=vmc,dmc=dmc,loop=loop,optimize=optimize_qmc,test=test,rmc=rmc,setparams=setparams),
+    types   = dict(linear=linear,cslinear=cslinear,vmc=vmc,dmc=dmc,loop=loop),
     typekey = 'method',
     default = 'loop'
     )
-
-
-
-class cmc(QIxml):
-    attributes = ['method','target']
-#end class cmc
-
 
 
 class gen(QIxml):
@@ -2269,25 +1833,18 @@ classes = [   #standard classes
     correlation,coefficients,loop,linear,cslinear,vmc,dmc,
     atomicbasisset,basisgroup,init,var,traces,scalar_traces,particle_traces,array_traces,
     reference_points,nearestneighbors,neighbor_trace,dm1b,
-    coefficient,radfunc,spindensity,structurefactor,
-    sposet,bspline_builder,composite_builder,heg_builder,include,
-    multideterminant,detlist,ci,mcwalkerset,csf,det,
-    optimize,cg_optimizer,flex_optimizer,optimize_qmc,test,kspace_jastrow,
-    header,local,force,forwardwalking,observable,record,rmc,pressure,dmccorrection,
-    nofk,mpc_est,distancetable,cpp,element,spline,setparams,
-    backflow,transformation,cubicgrid,molecular_orbital_builder,cmc,sk,gofr,
-    host,date,user,
+    coefficient,radfunc,spindensity,structurefactor,forward_walking,observable,
+    sposet,bspline_builder,composite_builder,heg_builder
     ]
 types = dict( #simple types and factories
-    #host           = param,
-    #date           = param,
-    #user           = param,
+    host           = param,
+    date           = param,
+    user           = param,
     pairpot        = pairpot,
     estimator      = estimator,
     sposet_builder = sposet_builder,
     jastrow        = jastrow,
-    qmc            = qmc,
-    optimizer      = optimizer,
+    qmc            = qmc
     )
 plurals = obj(
     particlesets    = 'particleset',
@@ -2310,17 +1867,7 @@ plurals = obj(
     sposet_builders = 'sposet_builder',
     sposets         = 'sposet',
     radfuncs        = 'radfunc',
-    qmcsystems      = 'qmcsystem',
-    atomicbasissets = 'atomicbasisset',
-    cis             = 'ci',
-    csfs            = 'csf',
-    dets            = 'det',
-    observables     = 'observable',
-    optimizes       = 'optimize',
-    coefficientss   = 'coefficients',
-    constants       = 'constant',
-    mcwalkersets    = 'mcwalkerset',
-    transformations = 'transformation',
+    observables     = 'Observable'
     )
 plurals_inv = plurals.inverse()
 plural_names = set(plurals.keys())
@@ -2356,10 +1903,7 @@ Names.set_expanded_names(
     mo               = 'MO',
     numerical        = 'Numerical',
     nearestneighbors = 'NearestNeighbors',
-    cuspcorrection   = 'cuspCorrection',
-    cuspinfo         = 'cuspInfo',
-    exctlvl          = 'exctLvl',
-    pairtype         = 'pairType',
+    observable       = 'Observable'
    )
 for c in classes:
     c.init_class()
@@ -2566,8 +2110,6 @@ opt_defaults = obj(
 
 class QmcpackInput(SimulationInput,Names):
     
-    profile_collection = None
-
     opt_methods = set(['opt','linear','cslinear'])
 
     simulation_type = simulation
@@ -2872,146 +2414,6 @@ class QmcpackInput(SimulationInput,Names):
         Param.metadata = None
     #end def include_xml
 
-    # This include functionality is currently not being used
-    # The rationale is essentially this:
-    #   -Having includes explicitly represented in the input file object
-    #    makes it very difficult to search for various components
-    #    i.e. where is the particleset? the wavefunction? a particular determinant?
-    #   -Difficulty in locating components makes it difficult to modify them
-    #   -Includes necessarily introduce greater variability in input file structure
-    #    and it is difficult to ensure every possible form is preserved each and 
-    #    every time a modification is made
-    #   -The only time it is undesirable to incorporate the contents of an
-    #    include directly into the input file object is if the data is large
-    #    e.g. for an xml wavefunction or pseudopotential.
-    #    In these cases, an external file should be provided that contains
-    #    only the large object in question (pseudo or wavefunction).
-    #    This is already done for pseudopotentials and should be done for 
-    #    wavefunctions, e.g. multideterminants.
-    #    Until that time, wavefunctions will be explicitly read into the full
-    #    input file.
-    def add_include(self,element_type,href,placement='on'):
-        # check the element type
-        elems = ['cell','ptcl','wfs','ham']
-        emap  = obj(
-            simulationcell = 'cell',
-            particleset    = 'ptcl',
-            wavefunction   = 'wfs',
-            hamiltonian    = 'ham'
-            )
-        if not element_type in elems:
-            self.error('cannot add include for element of type {0}\n  valid element types are {1}'.format(element_type,elems))
-        #end if
-        # check the requested placement
-        placements = ('before','on','after')
-        if not placement in placements:
-            self.error('cannot add include for element with placement {0}\n  valid placements are {1}'.format(placement,list(placements)))
-        #end if
-        # check that the base element is a simulation
-        base = self.get_base()
-        if not isinstance(base,simulation):
-            self.error('an include can only be added to simulation\n  attempted to add to {0}'.format(base.__class__.__name__))
-        #end if
-        # gather a list of current qmcsystems
-        if 'qmcsystem' in base:
-            qslist = [(0,base.qmcsystem)]
-            del base.qmcsystem
-        elif 'qmcsystems' in base:
-            qslist = base.qmcsystems.pairlist()
-            del base.qmcsystems
-        else:
-            qslist = []
-        #end if
-        # organize the elements of the qmcsystems
-        cur_elems = obj()
-        for elem in elems:
-            for place in placements:
-                cur_elems[elem,place] = None
-            #end for
-        #end for
-        for qskey,qs in qslist:
-            if isinstance(qs,include):
-                inc = qs
-                ekey = qskey.split('_')[1]
-                if not ekey in elems:
-                    self.error('encountered invalid element key: {0}\n  valid keys are: {1}'.format(ekey,elems))
-                #end if
-                if cur_elems[ekey,'on'] is None:
-                    cur_elems[ekey,'before'] = ekey,inc
-                else:
-                    cur_elems[ekey,'after' ] = ekey,inc
-                #end if
-            elif not isinstance(qs,qmcsystem):
-                self.error('expected qmcsystem element, got {0}'.format(qs.__class__.__name__))
-            else:
-                for elem in qmcsystem.elements:
-                    elem_plural = elem+'s'
-                    name  = None
-                    if elem in qs:
-                        name = elem
-                    elif elem_plural in qs:
-                        name = elem_plural
-                    #end if
-                    if name!=None:
-                        cur_elems[emap[elem],'on'] = name,qs[name]
-                        del qs[name]
-                    #end if
-                #end for
-                residue = qs.keys()
-                if len(residue)>0:
-                    self.error('extra keys found in qmcsystem: {0}'.format(sorted(residue)))
-                #end if
-            #end if
-        #end for
-        for elem in elems:
-            pbef = cur_elems[elem,'before']
-            pon  = cur_elems[elem,'on'    ]
-            paft = cur_elems[elem,'after' ] 
-            if pon is None:
-                if not pbef is None and paft is None:
-                    cur_elems[elem,'on'    ] = pbef
-                    cur_elems[elem,'before'] = None
-                elif not paft is None and pbef is None:
-                    cur_elems[elem,'on'    ] = paft
-                    cur_elems[elem,'after' ] = None
-                #end if
-            #end if
-        #end for
-        # insert the new include
-        inc_name  = 'include_'+element_type
-        inc_value = include(href=href)
-        cur_elems[element_type,placement] = inc_name,inc_value
-        # create a collection of qmcsystems
-        qmcsystems = collection()
-        qskey = ''
-        qs    = qmcsystem()
-        for elem in elems:
-            for place in placements:
-                cur_elem = cur_elems[elem,place]
-                if cur_elem!=None:
-                    name,value = cur_elem
-                    if isinstance(value,include):
-                        if len(qskey)>0:
-                            qmcsystems.add(qs,key=qskey)
-                            qskey = ''
-                            qs    = qmcsystem()
-                        #end if
-                        qmcsystems.add(value,key=name)
-                    else:
-                        qskey += elem[0]
-                        qs[name] = value
-                    #end if
-                #end if
-            #end for
-        #end for
-        if len(qskey)>0:
-            qmcsystems.add(qs,key=qskey)
-        #end if
-        # attach the collection to the input file
-        base.qmcsystems = qmcsystems
-    #end def add_include
-
-
     def get_output_info(self,*requests):
         project = self.simulation.project
         prefix = project.id
@@ -3210,8 +2612,7 @@ class QmcpackInput(SimulationInput,Names):
         system = system.copy()
         system.check_folded_system()
         system.change_units('B')
-        #system.structure.group_atoms()
-        system.structure.order_by_species()
+        system.structure.group_atoms()
         particles  = system.particles
         structure  = system.structure
         net_charge = system.net_charge
@@ -3582,29 +2983,6 @@ class QmcpackInput(SimulationInput,Names):
         self.replace('ion0','i')
     #end def remove_physical_system
 
-        
-    def cusp_correction(self):
-        ds = self.get('determinantset')
-        cc_var = ds!=None and 'cuspcorrection' in ds and ds.cuspcorrection==True
-        cc_run = len(self.simulation.calculations)==0
-        return cc_var and cc_run
-    #end def cusp_correction
-
-
-    def get_qmc(self,series):
-        qmc = None
-        calcs        = self.get('calculations')
-        series_start = self.get('series')
-        if calcs!=None:
-            if series_start is None:
-                qmc = calcs[series]
-            else:
-                qmc = calcs[series-series_start]
-            #end if
-        #end if
-        return qmc
-    #end def get_qmc
-
 
     def bundle(self,inputs,filenames):
         return BundledQmcpackInput(inputs,filenames)
@@ -3866,18 +3244,7 @@ def generate_particlesets(electrons = 'e',
     net_charge = system.net_charge
     net_spin   = system.net_spin
 
-    # not ordered consistently
-    #structure.group_atoms()
-    #elem = structure.elem
-    #pos  = structure.pos
-    #
-    #elns = particles.get_electrons()
-    #ions = particles.get_ions()
-    #eup  = elns.up_electron
-    #edn  = elns.down_electron
-
-    # maintain consistent order
-    ion_species,ion_counts = structure.order_by_species()
+    structure.group_atoms()
     elem = structure.elem
     pos  = structure.pos
 
@@ -3902,8 +3269,7 @@ def generate_particlesets(electrons = 'e',
         #end if
         ips = particleset(name=iname)
         groups = []
-        for ion_spec in ion_species:
-            ion = ions[ion_spec]
+        for ion in ions:
             gpos = pos[elem==ion.name]
             g = group(
                 name         = ion.name,
@@ -4200,11 +3566,11 @@ def generate_hamiltonian(name         = 'h0',
         if particles.count_ions()>0:
             pairpots.append(coulomb(name='IonIon',type='coulomb',source=iname,target=iname))
             ions = particles.get_ions()
-            #if not system.pseudized: # hack to run all-electron He
+            #if not system.pseudized: # hack to run he
             if ppfiles is None or len(ppfiles)==0:
                 pairpots.append(coulomb(name='ElecIon',type='coulomb',source=iname,target=ename))
             else:
-                # hack to run all-electron He 
+                # hack to run He
                 #if ppfiles is None or len(ppfiles)==0:
                     #QmcpackInput.class_error('cannot generate hamiltonian\n  system is pseudized, but no pseudopotentials have been provided\n  please provide pseudopotential files via the pseudos keyword')
                 #end if
