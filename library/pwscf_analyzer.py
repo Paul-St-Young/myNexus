@@ -273,6 +273,19 @@ class PwscfAnalyzer(SimulationAnalyzer):
                 self.max_forces = array(max_forces)
             #end if
 
+            press= 0.
+            vol=   0.
+            for l in lines:
+                if l.find('unit-cell volume')!=-1:
+                    vol = l.split('=')[-1].split()[-2]
+                # end if
+                if (l.find('total')!=-1) and (l.find('stress')!=-1):
+                    press=l.split('=')[-1]
+                # end if
+            # end for
+            self.pressure = press
+            self.volume   = vol
+
             tc= 0.
             tw= 0.
             for l in lines:
