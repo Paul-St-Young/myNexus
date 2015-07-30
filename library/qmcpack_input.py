@@ -1696,6 +1696,13 @@ class gofr(QIxml):
     identifier = 'name'
 #end class gofr
 
+class pressure(QIxml):
+    tag = 'estimator'
+    attributes = ['type','potential','etype','function']
+    parameters = ['kc']
+    identifier = 'type'
+#end class pressure
+
 class forwardwalking(QIxml):
     tag = 'estimator'
     attributes = ['type','blocksize']
@@ -1721,6 +1728,7 @@ estimator = QIxmlFactory(
                  forwardwalking      = forwardwalking,
                  sk                  = sk,
                  gofr                = gofr,
+                 pressure            = pressure,
                 ),
     typekey  = 'type',
     typekey2 = 'name'
@@ -1851,7 +1859,7 @@ classes = [   #standard classes
     atomicbasisset,basisgroup,init,var,traces,scalar_traces,particle_traces,array_traces,
     reference_points,nearestneighbors,neighbor_trace,dm1b,
     coefficient,radfunc,spindensity,structurefactor,forwardwalking,observable,
-    sposet,bspline_builder,composite_builder,heg_builder,sk,gofr
+    sposet,bspline_builder,composite_builder,heg_builder,sk,gofr,pressure
     ]
 types = dict( #simple types and factories
     host           = param,
