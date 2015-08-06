@@ -113,6 +113,7 @@ class Pwscf(Simulation):
             #end if
             os.chdir(link_loc)
             os.system('ln -s '+cd_rel+' charge-density.dat')
+            os.system('ln -s '+cd_rel+' data-file.xml')
             os.system('ln -s '+sp_rel+' spin-polarization.dat')
             os.chdir(cwd)
         elif result_name=='structure':
