@@ -4,6 +4,7 @@ import traceback
 from copy import deepcopy
 from abilities import AllAbilities,genbase
 
+from sys import exit
 exit_call = exit
 
 class obj(AllAbilities):
