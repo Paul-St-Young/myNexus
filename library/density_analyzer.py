@@ -1,3 +1,20 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  density_analyzer.py                                               #
+#    Support for manipulation of gridded density files.              #
+#                                                                    #
+#  Content summary:                                                  #
+#    DensityAnalyzer                                                 #
+#      Class to represent a density file.                            #
+#      Supports density addition, subtraction, integration, etc.     #
+#      Currently reads xsf files.                                    #
+#                                                                    #                                        
+#====================================================================#
+
 
 import os
 from numpy import array,zeros,ndarray,around,sqrt,arange

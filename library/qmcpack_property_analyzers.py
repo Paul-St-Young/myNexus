@@ -1,3 +1,38 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  qmcpack_property_analyzers.py                                     #
+#    Supports analysis of wavefunctions used/made by QMCPACK.        #
+#                                                                    #
+#  Content summary:                                                  #
+#    PropertyAnalyzer                                                #
+#      Base class for specific property analyzers.                   #
+#      Currently, only the wavefunction falls in this category.      #
+#                                                                    #
+#    WavefunctionAnalyzer                                            #
+#      Class to read and plot wavefunction data.                     #
+#      Currently only interfaces with b-spline Jastrows.             #
+#                                                                    #
+#    RadialJastrow                                                   #
+#      Represents a spherically symmetric (radial) jastrow           #
+#        correlation (u) function.                                   #
+#      Base class for specific radial jastrow types.                 #
+#      See Jastrow1B and Jastrow2B                                   #
+#                                                                    #
+#    Jastrow1B                                                       #
+#      Represents a 1-body Jastrow.                                  #
+#                                                                    #
+#    Jastrow2B                                                       #
+#      Represents a 2-body Jastrow.                                  #
+#                                                                    #
+#    Bspline                                                         #
+#      Represents a cubic bspline curve, supports evaluation.        #
+#                                                                    #
+#====================================================================#
+
 
 
 import os
@@ -165,6 +200,8 @@ class WavefunctionAnalyzer(PropertyAnalyzer):
         else:
             self.info.wfn_xml = arg0
         #end if
+
+        self.info.fail = False
     #end def __init__
             
             
@@ -173,13 +210,18 @@ class WavefunctionAnalyzer(PropertyAnalyzer):
         if info.load_jastrow:
             self.load_jastrow_data()
         elif 'filepath' in info:
-            qxml = QmcpackInput(info.filepath)
-            wavefunction = qxml.get('wavefunction')
-            wavefunction = wavefunction.get_single('psi0')
-            self.info.wfn_xml = wavefunction
+            try:
+                qxml = QmcpackInput(info.filepath)
+                wavefunction = qxml.get('wavefunction')
+                wavefunction = wavefunction.get_single('psi0')
+                info.wfn_xml = wavefunction
+            except:
+                info.wfn_xml = None
+                info.fail = True
+            #end try
         #end if
-        if not info.load_jastrow:
-            self.info.wfn_xml.pluralize()
+        if not info.load_jastrow and not info.fail:
+            info.wfn_xml.pluralize()
         #end if
     #end def load_data_local
 
@@ -200,39 +242,44 @@ class WavefunctionAnalyzer(PropertyAnalyzer):
             rcut_cell = 10
         #end if
 
-        J1,J2,J3 = self.info.wfn_xml.get(['J1','J2','J3'])
-        if J1!=None:
-            jname = 'J1'
-            func = J1.function.lower()
-            if func=='bspline':
-                for jn,corr in J1.correlations.iteritems():
-                    if 'rcut' in corr:
-                        rcut = corr.rcut
-                    else:
-                        rcut = rcut_cell
-                    #end if
-                    coeff = corr.coefficients.coeff
-                    jastrows[jname][jn] = Jastrow1B(func,coeff,rcut)
-                #end for
+        try:
+            J1,J2,J3 = self.info.wfn_xml.get(['J1','J2','J3'])
+            if J1!=None:
+                jname = 'J1'
+                func = J1.function.lower()
+                if func=='bspline':
+                    for jn,corr in J1.correlations.iteritems():
+                        if 'rcut' in corr:
+                            rcut = corr.rcut
+                        else:
+                            rcut = rcut_cell
+                        #end if
+                        coeff = corr.coefficients.coeff
+                        jastrows[jname][jn] = Jastrow1B(func,coeff,rcut)
+                    #end for
+                #end if
             #end if
-        #end if
-        if J2!=None:
-            jname = 'J2'
-            func = J2.function.lower()
-            if func=='bspline':
-                for jn,corr in J2.correlations.iteritems():
-                    if 'rcut' in corr:
-                        rcut = corr.rcut
-                    else:
-                        rcut = rcut_cell
-                    #end if
-                    s1 = corr.speciesa
-                    s2 = corr.speciesb
-                    coeff = corr.coefficients.coeff
-                    jastrows[jname][jn] = Jastrow2B(func,coeff,s1,s2,rcut)
-                #end for
+            if J2!=None:
+                jname = 'J2'
+                func = J2.function.lower()
+                if func=='bspline':
+                    for jn,corr in J2.correlations.iteritems():
+                        if 'rcut' in corr:
+                            rcut = corr.rcut
+                        else:
+                            rcut = rcut_cell
+                        #end if
+                        s1 = corr.speciesa
+                        s2 = corr.speciesb
+                        coeff = corr.coefficients.coeff
+                        jastrows[jname][jn] = Jastrow2B(func,coeff,s1,s2,rcut)
+                    #end for
+                #end if
             #end if
-        #end if
+        except:
+            self.warn('Jastrow read failed, some data will not be available')
+            self.info.fail = True
+        #end try
         self._transfer_from(jastrows)
     #end def analyze_local
 

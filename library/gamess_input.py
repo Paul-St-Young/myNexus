@@ -1,3 +1,35 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  gamess_input.py                                                   #
+#    Support for GAMESS input file I/O                               #
+#                                                                    #
+#  Content summary:                                                  #
+#    GamessInput                                                     #
+#      Input class for the GAMESS code.                              #
+#      Capable of reading/writing arbitrary GAMESS input files.      #
+#                                                                    #
+#    generate_gamess_input                                           #
+#      User function to create arbitrary GAMESS input.               #
+#                                                                    #
+#    KeywordGroup                                                    #
+#      Represents an arbitary keyword group in the input file.       #
+#                                                                    #
+#    KeywordSpecGroup                                                #
+#      Base class for specialized keyword groups.                    #
+#      Derived classes enforce the keyword specification.            #
+#      See ContrlGroup, SystemGroup, GuessGroup, ScfGroup,           #
+#        McscfGroup, DftGroup, GugdiaGroup, DrtGroup, CidrtGroup,    #
+#        and DetGroup                                                #
+#                                                                    #
+#    FormattedGroup                                                  #
+#      Represents strict machine-formatted input groups.             #
+#                                                                    #
+#====================================================================#
+
 
 
 import os
@@ -605,6 +637,53 @@ class CidrtGroup(KeywordSpecGroup):
         nprt = set([0,1,2,3]),
         )
 #end class CidrtGroup
+ 
+
+
+class DetGroup(KeywordSpecGroup):
+    keywords = set([
+            'ncore' ,'nact'  ,'nels'  ,'sz'    ,'group' ,'stsym' ,'irreps',
+            'nstate','prttol','analys','itermx','cvgtol','nhgss' ,'nstgss',
+            'mxxpan','clobbr','pures' ,'iroot' ,'nflgdm','saflg' ,'wstate',
+            'idwref','dwparm'
+            ])
+
+    integers = set(['ncore','nact','nels','nstate','itermx','nhgss','nstgss',
+                    'mxxpan','iroot','idwref'])
+    reals    = set(['sz','prttol','cvgtol','dwparm'])
+    bools    = set(['analys','clobbr','pures','saflg'])
+    strings  = set(['group','stsym'])
+    arrays   = set(['irreps','nflgdm','wstate'])
+
+    allowed_values = obj(
+        group = set(['c1','c2','ci','cs','c2v','c2h','d2','d2h','c4v','d4','d4h']),
+        stsym = set(['a','ag','au','ap','app','a','b','a1','a2','b1','b2','ag',
+                     'bu','bg','au','a','b1','b2','b3','ag','b1g','b2g','b3g',
+                     'au','b1u','b2u','b3u']),
+        )
+#end class DetGroup
+
+
+
+class BasisGroup(KeywordSpecGroup):
+    keywords = set([
+            'gbasis','ngauss','ndfunc','npfunc','diffsp','diffs',
+            'polar' ,'split2','split3','basnam','extfil'
+            ])
+
+    integers = set(['ngauss','ndfunc','nffunc'])
+    bools    = set(['diffsp','diffs','extfil'])
+    strings  = set(['gbasis','polar'])
+    arrays   = set(['split2','split3','basname'])
+
+    allowed_values = obj(
+        #gbasis = set(['sto','n21','n31','n311','g3l','g3lx','mini','midi','dzv',
+        #              'dh','tzv','mc']) # many others
+        ndfunc = set([0,1,2,3]),
+        nffunc = set([0,1]),
+        polar  = set(['common','popn31','popn311','dunning','huzinaga','hondo7']),
+        )
+#end class BasisGroup
 
 
 
@@ -655,7 +734,7 @@ class GamessInput(SimulationInput,GIbase):
     all_groups = set(group_order)
 
     key_groups  = set(['contrl','system','guess','scf','mcscf','dft',
-                       'gugdia','drt','cidrt'])
+                       'gugdia','drt','cidrt','det','basis'])
 
     card_groups = set()
     #card_groups = set(['ecp','data','mcp','gcilst','points','stone','efrag',
@@ -674,7 +753,9 @@ class GamessInput(SimulationInput,GIbase):
         dft    = DftGroup,
         gugdia = GugdiaGroup,
         drt    = DrtGroup,
-        cidrt  = CidrtGroup
+        cidrt  = CidrtGroup,
+        det    = DetGroup,
+        basis  = BasisGroup
         )
     keyspec_group_order = []
     for gname in group_order:
@@ -951,7 +1032,6 @@ def generate_any_gamess_input(**kwargs):
 
     invalid_names = kwset-GamessInput.all_name_aliases
     if len(invalid_names)>0:
-        obj.class_error('this\nthat\nother')
         GamessInput.class_error('invalid group names or keywords encountered\n  invalid names/keywords provided: {0}\n  please check if these group names or keywords are actually valid GAMESS inputs\n  if so, unsupported groups can be generated by providing the keywords as a single argument:\n    generate_gamess_input(\n      ...,\n      group_name = obj(assign keywords),\n      ...,\n      )'.format(sorted(invalid_names)),'generate_gamess_input')
     #end if
 
@@ -1016,7 +1096,7 @@ def generate_any_gamess_input(**kwargs):
     # handle nexus specific input generation keywords
     #  ecp 287
     #  data 37
-    if pskw.system!=None:
+    if pskw.system!=None and not 'data' in gi:
         system = pskw.system
         if not 'contrl' in gi:
             gi.contrl = ContrlGroup()

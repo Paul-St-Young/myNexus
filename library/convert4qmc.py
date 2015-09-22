@@ -1,3 +1,30 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  convert4qmc.py                                                    #
+#    Interface to convert4qmc tool (associated with QMCPACK).        #
+#                                                                    #
+#  Content summary:                                                  #
+#    Convert4qmcInput                                                #
+#      Class representing command line interface of convert4qmc.     #
+#                                                                    #
+#    Convert4qmcAnalyzer                                             #
+#      Placeholder class for output analysis.                        #
+#                                                                    #
+#    Convert4qmc                                                     #
+#      Class representing conver4qmc instance.                       #
+#                                                                    #
+#    generate_convert4qmc_input                                      #
+#      Function to generate arbitrary convert4qmc input.             #
+#                                                                    #
+#    generate_convert4qmc                                            #
+#      Function to generate Convert4qmc simulation object.           #
+#                                                                    #                                        
+#====================================================================#
+
 
 
 import os
@@ -146,7 +173,21 @@ class Convert4qmc(Simulation):
 
     def incorporate_result(self,result_name,result,sim):
         if result_name=='orbitals':
-            self.input.gamess_ascii = os.path.relpath(result.location,self.locdir)
+            orbpath = os.path.relpath(result.location,self.locdir)
+            if result.scftyp=='mcscf':
+                self.input.gamess_ascii = orbpath
+                self.input.ci           = orbpath
+            elif result.scftyp=='none': # cisd, etc
+                self.input.gamess_ascii = orbpath
+                self.input.ci           = orbpath
+                if result.mos>0:
+                    self.input.read_initial_guess = result.mos
+                elif result.norbitals>0:
+                    self.input.read_initial_guess = result.norbitals
+                #end if
+            else:
+                self.input.gamess_ascii = orbpath
+            #end if
             self.job.app_command = self.input.app_command()
         else:
             self.error('ability to incorporate result '+result_name+' has not been implemented')
@@ -184,6 +225,9 @@ class Convert4qmc(Simulation):
 
 def generate_convert4qmc(**kwargs):
     sim_args,inp_args = Simulation.separate_inputs(kwargs)
+    if 'identifier' in sim_args and not 'prefix' in inp_args:
+        inp_args.prefix = sim_args.identifier
+    #end if
 
     if not 'input' in sim_args:
         sim_args.input = generate_convert4qmc_input(**inp_args)

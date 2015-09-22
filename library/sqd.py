@@ -1,3 +1,25 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  sqd.py                                                            #
+#    Nexus interface with the SQD atomic Hartree-Fock code shipped   #
+#    with QMCPACK.                                                   #
+#    Essentially an early fork of qmcpack_input.py.                  #
+#                                                                    #
+#  Content summary:                                                  #
+#    Sqd                                                             #
+#      Simulation class for SQD.                                     #
+#      Handles passing orbital data to QMCPACK.                      #
+#                                                                    #
+#    generate_spd                                                    #
+#      User-facing function to generate SQD simulation objects.      #
+#                                                                    #
+#                                                                    #
+#====================================================================#
+
 
 import os
 from generic import obj

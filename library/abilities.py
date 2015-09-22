@@ -1,3 +1,55 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  abilities.py                                                      # 
+#    Base classes for all Nexus classes.  Defines abilities such as  #
+#    querying, printing, etc.  Lays the foundation for developer     #
+#    and user environments.                                          #
+#                                                                    #
+#  Content summary:                                                  #
+#    genbase                                                         #
+#      Essentially a forward declaration of the generic class.       #
+#      See generic.py.                                               #
+#                                                                    #
+#    Callable                                                        #
+#      Helper class to create 'static' methods.  Seldom used.        #
+#                                                                    #
+#    Copyable                                                        #
+#      Base class for copy abilities.                                #
+#                                                                    #
+#    Comparable                                                      #
+#      Base class for comparison abilities (=)                       #
+#                                                                    #
+#    Iterable                                                        #
+#      Base class for iteration abilities.                           #
+#      Allows derived classes to behave somewhat like dictionaries.  #
+#                                                                    #
+#    Queryable                                                       #
+#      Base class for query abilities.                               #
+#      Covers len, in, del, clear, etc.                              #
+#                                                                    #
+#    Logable                                                         #
+#      Base class for generic logging abilities.                     #
+#      Covers log, error, warn, etc.                                 #
+#      Functionality superceded by obj class in generic.py.          #
+#                                                                    #
+#    Saveable                                                        #
+#      Base class for generic save/load abilities.                   #
+#                                                                    #
+#    Validatable                                                     #
+#      Base class for validation abilities.  Seldom used.            #
+#                                                                    #
+#    AllAbilities                                                    #
+#      Summary base class of multiple abilities.                     #
+#      Starting base class for most Nexus classes.                   #
+#      Confluence of Copyable, Comparable, Queryable, Savable, and   #
+#        Validatable classes.                                        #
+#                                                                    # 
+#====================================================================#
+
 
 
 class genbase(object):
@@ -297,28 +349,38 @@ class Logable:
 
 
 import cPickle
+import pickle
 class Savable:
-    def _save(self,fpath=None):
+    def _save(self,fpath=None,fast=True):
         #self._unlink_dynamic_methods(self)
         if fpath==None:
             fpath='./'+self.__class__.__name__+'.p'
         #end if
         #self._savepath=fpath
         fobj = open(fpath,'w')
-        binary = cPickle.HIGHEST_PROTOCOL
-        cPickle.dump(self,fobj,binary)
+        if fast:
+            binary = cPickle.HIGHEST_PROTOCOL
+            cPickle.dump(self,fobj,binary)
+        else:
+            binary = pickle.HIGHEST_PROTOCOL
+            pickle.dump(self,fobj,binary)
+        #end if
         fobj.close()
         del fobj
         del binary
         return
     #end def _save
 
-    def _load(self,fpath=None):
+    def _load(self,fpath=None,fast=True):
         if fpath==None:
             fpath='./'+self.__class__.__name__+'.p'
         #end if
         fobj = open(fpath,'r')
-        tmp = cPickle.load(fobj)
+        if fast:
+            tmp = cPickle.load(fobj)
+        else:
+            tmp = pickle.load(fobj)
+        #end if
         fobj.close()
         self.__dict__.clear()
         #self.__dict__=tmp.__dict__
@@ -337,7 +399,7 @@ class Savable:
     #            if type(v)==type(self._unlink_dynamic_methods):
     #                obj.__dict__[k]=None
     #            else:
-    #                self._unlink_dynamic_methods(v)
+    #                self._unlink_dynamic_methods(v) 
     #            #end if
     #        #end for
     #    elif hasattr(obj,'__iter__'):

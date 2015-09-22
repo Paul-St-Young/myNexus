@@ -1,3 +1,22 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  pwscf.py                                                          #
+#    Nexus interface to the PWSCF simulation code.                   #
+#                                                                    #
+#  Content summary:                                                  #
+#    Pwscf                                                           #
+#      Simulation class for PWSCF.                                   #
+#                                                                    #
+#    generate_pwscf                                                  #
+#      User-facing function to create Pwscf simulation objects.      #
+#                                                                    #
+#====================================================================#
+
+
 import os
 from numpy import array
 from generic import obj
@@ -53,7 +72,7 @@ class Pwscf(Simulation):
         elif result_name=='orbitals':
             calculating_result = 'wf_collect' in control and control.wf_collect
         elif result_name=='structure':
-            calculating_result = control.calculation.lower() == 'relax'
+            calculating_result = 'relax' in control.calculation.lower()
         else:
             calculating_result = False
         #end if
@@ -87,11 +106,18 @@ class Pwscf(Simulation):
             pos,atoms = structs[len(structs)-1].tuple('positions','atoms')
             scale = self.input.system['celldm(1)']
             pos   = scale*array(pos)
-            atoms = array(atoms)
-            result.structure = obj(
-                positions = pos,
-                atoms     = atoms
-                )
+            
+            structure = self.system.structure.copy()
+            structure.change_units('B')
+            structure.pos = pos
+            structure.set_elem(atoms)
+            result.structure = structure
+
+            #atoms = array(atoms)
+            #result.structure = obj(
+            #    positions = pos,
+            #    atoms     = atoms
+            #    )
         else:
             self.error('ability to get result '+result_name+' has not been implemented')
         #end if
@@ -113,19 +139,22 @@ class Pwscf(Simulation):
             #end if
             os.chdir(link_loc)
             os.system('ln -s '+cd_rel+' charge-density.dat')
-            os.system('ln -s '+cd_rel+' data-file.xml')
             os.system('ln -s '+sp_rel+' spin-polarization.dat')
             os.chdir(cwd)
         elif result_name=='structure':
-            structure = self.system.structure
-            structure.change_units('B')
-            relstruct = result.structure
-            structure.set(
-                pos   = relstruct.positions,
-                atoms = relstruct.atoms
-                )
+            relstruct = result.structure.copy()
+            relstruct.change_units('B')
+            self.system.structure = relstruct
+
+            #structure = self.system.structure
+            #structure.change_units('B')
+            #structure.set(
+            #    pos   = relstruct.positions,
+            #    atoms = relstruct.atoms
+            #    )
+
             input = self.input
-            preserve_kp = 'k_points' in input and 'specifier' in input.k_points and input.k_points.specifier=='automatic'
+            preserve_kp = 'k_points' in input and 'specifier' in input.k_points and (input.k_points.specifier=='automatic' or input.k_points.specifier=='gamma')
             if preserve_kp:
                 kp = input.k_points.copy()
             #end if

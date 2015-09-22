@@ -1,7 +1,39 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  generic.py                                                        #
+#    Base class for all Nexus classes (obj).  Support for hidden     #
+#    data UI (hidden).                                               #
+#                                                                    #
+#  Content summary:                                                  # 
+#    obj                                                             #
+#      Base class for all Nexus classes.                             #
+#      Inherits from AllAbilities and wraps all functions for UI.    #
+#      Also basic working object/class for generic use.              #
+#      Can function like a standard dict, also mixes in parts of     #
+#        the list interface.                                         #
+#                                                                    #
+#    generic                                                         #
+#      More efficient implementation of AllAbilities+obj interface.  #
+#      Intended to allow for method namespace infringement without   #
+#        loss of access to functionality.                            #
+#      Limited use so far.                                           #
+#                                                                    #
+#    hidden                                                          #
+#      Like generic, but allows for hidden storage.                  #
+#      Can be used, e.g., to make an ordered object class.           #
+#      See use in qmcpack_input.py.                                  #
+#                                                                    #
+#====================================================================#
+
 
 import sys
 import traceback
 from copy import deepcopy
+from random import randint
 from abilities import AllAbilities,genbase
 
 from sys import exit
@@ -36,10 +68,10 @@ class obj(AllAbilities):
     #    self._transfer_to(other,copy)
     def append(self,value):
         self._append(value)
-    def save(self,fpath=None):
-        self._save(fpath)
-    def load(self,fpath):
-        self._load(fpath)
+    def save(self,fpath=None,fast=True):
+        self._save(fpath,fast)
+    def load(self,fpath,fast=True):
+        self._load(fpath,fast)
 
 
     def list(self,*names):
@@ -128,7 +160,7 @@ class obj(AllAbilities):
         #end if
         self.log(header+post_header)
         self.log(pad+message.replace('\n','\n'+pad))
-    #end def error
+    #end def warn
 
     @classmethod
     def class_error(cls,message,header=None,exit=True,trace=True,post_header=' Error:'):
@@ -136,8 +168,8 @@ class obj(AllAbilities):
         if header==None:
             header = cls.__name__
         #end if
-        cls.logfile.write(header+post_header+'\n')
-        cls.logfile.write(('\n'+message).replace('\n','\n'+pad)+'\n')
+        cls.logfile.write('\n'+header+post_header+'\n')
+        cls.logfile.write((pad+message).replace('\n','\n'+pad)+'\n')
         if exit:
             cls.logfile.write('  exiting.\n\n')
             if trace:
@@ -228,6 +260,20 @@ class obj(AllAbilities):
         #end if
     #end def delete
 
+    def add_attribute_path(self,path,value=None):
+        o = self
+        for p in path[0:-1]:
+            if not p in o:
+                o[p] = obj()
+            #end if
+            o = o[p]
+        #end for
+        o[path[-1]] = value
+    #end def add_attribute_path
+
+    def select_random(self): # intended for list-like objects
+        return self[randint(0,len(self)-1)]
+    #end def select_random
 #end class obj
 
 

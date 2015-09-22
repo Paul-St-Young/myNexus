@@ -1,3 +1,28 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  qmcpack.py                                                        #
+#    Nexus interface with the QMCPACK simulation code.               #
+#                                                                    #
+#                                                                    #
+#  Content summary:                                                  #
+#    Qmcpack                                                         #
+#      Simulation class for QMCPACK.                                 #
+#      Handles incorporation of structure, orbital, and Jastrow      #
+#        data from other completed simulations.                      #
+#                                                                    #
+#    generate_qmcpack                                                #
+#      User-facing function to create QMCPACK simulation objects.    #
+#                                                                    #
+#    generate_cusp_correction                                        #
+#      User-facing function to run QMCPACK as an intermediate tool   #
+#        to add cusps to Gaussian orbitals coming from GAMESS.       #
+#                                                                    #
+#====================================================================#
+
 
 import os
 from numpy import array,dot,pi
@@ -34,7 +59,7 @@ class Qmcpack(Simulation):
     #application   = 'qmcapp'
     application   = 'qmcapp_complex' # always use complex version until kpoint handling is fixed
     application_properties = set(['serial','omp','mpi'])
-    application_results    = set(['jastrow'])
+    application_results    = set(['jastrow','cuspcorr','wavefunction'])
     preserve = Simulation.preserve | set(['should_twist_average'])
 
 
@@ -74,9 +99,11 @@ class Qmcpack(Simulation):
 
     def check_result(self,result_name,sim):
         calculating_result = False
-        if result_name=='jastrow':
+        if result_name=='jastrow' or result_name=='wavefunction':
             calctypes = self.input.get_output_info('calctypes')
             calculating_result = 'opt' in calctypes
+        elif result_name=='cuspcorr':
+            calculating_result = self.input.cusp_correction()
         else:
             self.error('ability to check for result '+result_name+' has not been implemented')
         #end if        
@@ -87,12 +114,15 @@ class Qmcpack(Simulation):
     def get_result(self,result_name,sim):
         result = obj()
         analyzer = self.load_analyzer_image()
-        if result_name=='jastrow':
+        if result_name=='jastrow' or result_name=='wavefunction':
             if not 'results' in analyzer or not 'optimization' in analyzer.results:
                 self.error('analyzer did not compute results required to determine jastrow')
             #end if
             opt_file = str(analyzer.results.optimization.optimal_file)
             result.opt_file = os.path.join(self.locdir,opt_file)
+        elif result_name=='cuspcorr':
+            result.spo_up_cusps = os.path.join(self.locdir,self.identifier+'.spo-up.cuspInfo.xml')
+            result.spo_dn_cusps = os.path.join(self.locdir,self.identifier+'.spo-dn.cuspInfo.xml')
         else:
             self.error('ability to get result '+result_name+' has not been implemented')
         #end if        
@@ -206,15 +236,17 @@ class Qmcpack(Simulation):
             elif isinstance(sim,Convert4qmc):
 
                 res = QmcpackInput(result.location)
-                wfn = res.qmcsystem.wavefunction
-                qs = input.simulation.qmcsystem
+                qs  = input.simulation.qmcsystem
                 oldwfn = qs.wavefunction
-                newwfn = wfn.copy()
+                newwfn = res.qmcsystem.wavefunction
                 if 'jastrows' in newwfn:
                     del newwfn.jastrows
                 #end if
                 if 'jastrows' in oldwfn:
                     newwfn.jastrows = oldwfn.jastrows
+                #end if
+                if input.cusp_correction():
+                    newwfn.determinantset.cuspcorrection = True
                 #end if
                 qs.wavefunction = newwfn
 
@@ -293,14 +325,30 @@ class Qmcpack(Simulation):
             else:
                 self.error('incorporating jastrow from '+sim.__class__.__name__+' has not been implemented')
             #end if
+
         elif result_name=='structure':
+
             structure = self.system.structure
             relstruct = result.structure
-            structure.set(
-                pos   = relstruct.positions,
-                atoms = relstruct.atoms
-                )
+            structure.pos = relstruct.positions.copy()
+            structure.set_elem(relstruct.atoms)
             self.input.incorporate_system(self.system)
+
+        elif result_name=='cuspcorr':
+
+            ds = self.input.get('determinantset')
+            ds.cuspcorrection = True
+            ds.sposets['spo-up'].cuspinfo = os.path.relpath(result.spo_up_cusps,self.locdir)
+            ds.sposets['spo-dn'].cuspinfo = os.path.relpath(result.spo_dn_cusps,self.locdir)
+
+        elif result_name=='wavefunction':
+            if not isinstance(sim,Qmcpack):
+                self.error('incorporating wavefunction from '+sim.__class__.__name__+' has not been implemented')
+            #end if
+            print '        getting optimal wavefunction from: '+result.opt_file
+            opt = QmcpackInput(result.opt_file)
+            qs = input.get('qmcsystem')
+            qs.wavefunction = opt.qmcsystem.wavefunction.copy()
         else:
             self.error('ability to incorporate result '+result_name+' has not been implemented')
         #end if        
@@ -317,9 +365,24 @@ class Qmcpack(Simulation):
         errors = fobj.read()
         fobj.close()
 
+        cusp_run = self.input.cusp_correction()
+        if cusp_run:
+            sd = self.input.get('slaterdeterminant')
+            if sd!=None:
+                cuspfiles = []
+                for d in sd.determinants:
+                    cuspfiles.append(d.id+'.cuspInfo.xml')
+                #end for
+            else: # assume multideterminant sposet names
+                cuspfiles = ['spo-up.cuspInfo.xml','spo-dn.cuspInfo.xml']
+            #end if
+            outfiles   = cuspfiles
+        else:
+            outfiles = self.input.get_output_info('outfiles')
+        #end if
+
         ran_to_end  = 'Total Execution' in output
         files_exist = True
-        outfiles = self.input.get_output_info('outfiles')
         for file in outfiles:
             file_loc = os.path.join(self.locdir,file)
             files_exist = files_exist and os.path.exists(file_loc)
@@ -337,7 +400,13 @@ class Qmcpack(Simulation):
         self.failed    = aborted
         self.finished  = files_exist and (self.job.finished or ran_to_end) and not aborted 
 
-
+        if cusp_run and files_exist:
+            for cuspfile in cuspfiles:
+                cf_orig = os.path.join(self.locdir,cuspfile)
+                cf_new  = os.path.join(self.locdir,self.identifier+'.'+cuspfile)
+                os.system('cp {0} {1}'.format(cf_orig,cf_new))
+            #end for
+        #end if
 
         #print
         #print self.__class__.__name__
@@ -536,3 +605,29 @@ def generate_qmcpack(**kwargs):
 
     return qmcpack
 #end def generate_qmcpack
+
+
+def generate_cusp_correction(**kwargs):
+    kwargs['input_type']   = 'basic'
+    kwargs['bconds']       = 'nnn'
+    kwargs['jastrows']     = []
+    kwargs['corrections']  = []
+    kwargs['calculations'] = []
+
+    sim_args,inp_args = Simulation.separate_inputs(kwargs)
+
+    input_type = inp_args.input_type
+    del inp_args.input_type
+    input = generate_qmcpack_input(input_type,**inp_args)
+
+    wf = input.get('wavefunction')
+    if not 'determinantset' in wf:
+        Qmcpack.class_error('wavefunction does not have determinantset, cannot create cusp correction','generate_cusp_correction')
+    #end if
+    wf.determinantset.cuspcorrection = True
+
+    sim_args.input = input
+    qmcpack = Qmcpack(**sim_args)
+
+    return qmcpack
+#end def generate_cusp_correction

@@ -1,3 +1,26 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  qaobject.py                                                       #
+#    Provides base class functionality for all classes associated    # 
+#    with the QmcpackAnalyzer class.  Maintains data global to       #
+#    these classes.                                                  #
+#                                                                    #
+#  Content summary:                                                  #
+#    QAobject                                                        #
+#      Base class for all QMCPACK analyzer components.               #
+#      Exposes settings options to the user.                         #
+#                                                                    #
+#    Checks                                                          #
+#      Class to assess overall validity based on stored results of   #
+#      many checks (boolean values). Only use so far is to validate  #
+#      the structure of Trace files. See qmcpack_method_analyzers.py.#
+#                                                                    #
+#====================================================================#
+
 
 from generic import obj
 from developer import DevBase
@@ -51,7 +74,8 @@ class QAobject(QAobj_base):
 
     _allowed_settings = set(['optimize'])
     _default_settings = obj(
-        optimize = 'variance'
+        #optimize = 'variance'
+        optimize = 'lastcost'
         )
     for var,val in _default_settings.iteritems():
         QAobj_base.__dict__[var] = val

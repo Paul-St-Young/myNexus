@@ -1,9 +1,44 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  physical_system.py                                                #
+#    Representations of matter, particles, and particles collected   #
+#    together in complete systems.                                   #
+#                                                                    #
+#  Content summary:                                                  #
+#    PhysicalSystem                                                  #
+#      Class representing electrons+ions for a simulation.           #
+#                                                                    #
+#    generate_physical_system                                        #
+#      User function to create arbitrary physical systems.           #
+#                                                                    #
+#    Matter                                                          #
+#      Base class for all forms of matter.                           #
+#      Class contains a list of all matter known to Nexus.           #
+#                                                                    #
+#    Particle                                                        #
+#      Class representing a particular particle species.             #
+#                                                                    #
+#    Ion, PseudoIon                                                  #
+#      Specialized Particle classes for ion species and ions         #
+#      represented by pseudopotentials.                              #
+#                                                                    #
+#    Particles                                                       #
+#      A collection of particles.                                    #
+#      PhysicalSystem objects contain a Particles instance.          #
+#                                                                    #
+#====================================================================#
+
 
 from numpy import dot,array
 from numpy.linalg import inv
 from generic import obj
 from developer import DevBase
 from unit_converter import convert
+from periodic_table import is_element
 from structure import Structure
 from debug import *
 
@@ -27,28 +62,7 @@ class Matter(DevBase):
     #end def new_particles
 
     def is_element(self,name,symbol=False):
-        s = None
-        iselem = name in self.elements
-        if not iselem and isinstance(name,str):
-            nlen = len(name)
-            if name.find('_')!=-1:
-                s,n = name.split('_',1)
-                iselem = n.isdigit() and s in self.elements
-            elif nlen>1 and name[1:].isdigit():
-                s = name[0:1]
-                iselem = s in self.elements
-            elif nlen>2 and name[2:].isdigit():
-                s = name[0:2]
-                iselem = s in self.elements
-            #end if
-        else:
-            s = name
-        #end if
-        if symbol:
-            return iselem,s
-        else:
-            return iselem
-        #end if
+        return is_element(name,symbol=symbol)
     #end def is_element
 #end class Matter
 
@@ -138,6 +152,7 @@ class Particles(Matter):
         for old,new in name_pairs.iteritems():
             if old in self:
                 o = self[old]
+                o.name = new
                 del self[old]
                 if new in self:
                     self[new].count += o.count
@@ -201,16 +216,15 @@ plist = [
     Particle('up_electron'  ,1.0,-1, 1),
     Particle('down_electron',1.0,-1,-1),
     ]
-from periodic_table import PeriodicTable
-pt = PeriodicTable()
-for name,a in pt.elements.iteritems():
+from periodic_table import ptable
+for name,a in ptable.elements.iteritems():
     spin = 0 # don't have this data
     protons  = a.atomic_number
     neutrons = int(round(a.atomic_weight['amu']-a.atomic_number))
     p = Ion(a.symbol,a.atomic_weight['me'],a.atomic_number,spin,protons,neutrons)
     plist.append(p)
 #end for
-for name,iso in pt.isotopes.iteritems():
+for name,iso in ptable.isotopes.iteritems():
     for mass_number,a in iso.iteritems():
         spin = 0 # don't have this data
         protons  = a.atomic_number
@@ -220,11 +234,10 @@ for name,iso in pt.isotopes.iteritems():
     #end for
 #end for
 
-Matter.set_elements(pt.elements.keys())
+Matter.set_elements(ptable.elements.keys())
 Matter.set_particle_collection(Particles(plist))
 
 del plist
-del pt
 
 
 
@@ -403,6 +416,17 @@ class PhysicalSystem(Matter):
     def rename(self,folded=True,**name_pairs):
         self.particles.rename(**name_pairs)
         self.structure.rename(folded=False,**name_pairs)
+        if self.pseudized:
+            for old,new in name_pairs.iteritems():
+                if old in self.valency:
+                    if new not in self.valency:
+                        self.valency[new] = self.valency[old]
+                    #end if
+                    del self.valency[old]
+                #end if
+            #end for
+            self.valency_in = self.valency
+        #end if
         if self.folded_system!=None and folded:
             self.folded_system.rename(folded=folded,**name_pairs)
         #end if
@@ -468,6 +492,11 @@ class PhysicalSystem(Matter):
         self.folded_system = None
         self.structure.remove_folded_structure()
     #end def remove_folded_system
+
+
+    def remove_folded(self):
+        self.remove_folded_system()
+    #end def remove_folded
 
 
     def get_primitive(self):
@@ -536,8 +565,8 @@ class PhysicalSystem(Matter):
 #end class PhysicalSystem
 
 
-
-from structure import generate_structure
+import os
+from structure import generate_structure,read_structure
 from copy import deepcopy
 ps_defaults = dict(
     type='crystal',
@@ -550,7 +579,6 @@ ps_defaults = dict(
     extensive=True
     )
 def generate_physical_system(**kwargs):
-
     for var,val in ps_defaults.iteritems():
         if not var in kwargs:
             kwargs[var] = val
@@ -566,6 +594,21 @@ def generate_physical_system(**kwargs):
         tiling = None
     else:
         tiling = kwargs['tiling']
+    #end if
+
+    if 'structure' in kwargs:
+        s = kwargs['structure']
+        is_str = isinstance(s,str)
+        if is_str and os.path.exists(s):# and '.' in os.path.split(s)[1]:
+            if 'elem' in kwargs:
+                print 'system using elem'
+                kwargs['structure'] = read_structure(s,elem=kwargs['elem'])
+            else:
+                kwargs['structure'] = read_structure(s)
+            #end if
+        elif is_str and '/' in s:
+            PhysicalSystem.class_error('path provided for structure file does not exist: '+s,'generate_physical_system')
+        #end if
     #end if
 
     generation_info = obj()
@@ -590,7 +633,8 @@ def generate_physical_system(**kwargs):
     valency = dict()
     remove = []
     for var in kwargs:
-        if var in Matter.elements:
+        #if var in Matter.elements:
+        if is_element(var):     
             valency[var] = kwargs[var]
             remove.append(var)
         #end if
@@ -605,7 +649,7 @@ def generate_physical_system(**kwargs):
     else:
         for d in range(len(pretile)):
             if tiling[d]%pretile[d]!=0:
-                PhysicalSystem.class_error('pretile does not divide evenly into tiling\n  tiling provided: {0}\n  pretile provided: {1}'.format(tiling,pretile))
+                PhysicalSystem.class_error('pretile does not divide evenly into tiling\n  tiling provided: {0}\n  pretile provided: {1}'.format(tiling,pretile),'generate_physical_system')
             #end if
         #end for
         tiling = tuple(array(tiling)/array(pretile))
@@ -614,7 +658,8 @@ def generate_physical_system(**kwargs):
         pre.remove_folded_structure()
         structure = pre.tile(tiling)
     #end if
-    if tiling!=None:
+
+    if tiling!=None and tiling!=(1,1,1):
         fps = PhysicalSystem(
             structure  = structure.folded_structure,
             net_charge = net_charge,

@@ -1,3 +1,32 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  template_simulation.py                                            #
+#    Instructions and code templates for developers seeking to       #
+#    interface a new simulation code with Nexus.                     #
+#                                                                    #
+#  Content summary:                                                  #
+#    TemplateSimulationInput                                         #
+#      Code template for a SimulationInput class.                    #
+#                                                                    #
+#    generate_template_simulation_input                              #
+#      Code template for user-facing simulation input generator      #
+#      function.                                                     #
+#                                                                    #
+#    TemplateSimulationAnalyzer                                      #
+#      Code template for a SimulationAnalyzer class.                 #
+#                                                                    #
+#    TemplateSimulation                                              #
+#      Code template for a Simulation class.                         #
+#                                                                    #
+#    generate_template_simulation                                    #
+#      Code template for user-facing simulation generator function.  #
+#                                                                    #
+#====================================================================#
+
 
 import os
 from generic import obj

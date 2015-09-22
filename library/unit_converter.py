@@ -1,3 +1,24 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  unit_converter.py                                                 #
+#    Support for physical unit conversion of scalars and arrays.     #
+#    Several distance, time, mass, energy, charge, pressure, and     #
+#    force units are supported.                                      #
+#                                                                    #
+#  Content summary:                                                  #
+#    convert                                                         #
+#      User-facing function to convert a scalar or array from one    #
+#      unit system to another.                                       #
+#                                                                    #
+#    UnitConverter                                                   #
+#      Class performs unit conversion.  Wrapped by convert function. #
+#                                                                    #
+#====================================================================#
+
 
 from abilities import Callable
 
@@ -45,12 +66,13 @@ class UnitConverter:
     amu = 1.660538921e-27*kg
     Da  = amu
 
-    energy_set = set(['J','eV','Ry','Ha','kJ_mol','K','degC','degF'])
+    energy_set = set(['J','eV','Ry','Ha','kJ_mol','K','degC','degF','kcal_mol'])
     J      = 1.e0
     eV     = 1.60217646e-19*J
     Ry     = 13.6056923*eV
     Ha     = 2*Ry
     kJ_mol = 1000.*J/mol
+    kcal_mol = 0.04336411531*eV
     K      = J/kb
     degC   = K
     degF   = 9./5.*K
@@ -107,6 +129,7 @@ class UnitConverter:
     rydberg       = Unit('Rydberg'      ,'Ry'    ,'energy',Ry)
     hartree       = Unit('Hartree'      ,'Ha'    ,'energy',Ha)
     kJ_mole       = Unit('kJ_mole'      ,'kJ_mol','energy',kJ_mol)
+    kcal_mole     = Unit('kcal_mole'    ,'kcal_mol','energy',kcal_mol)
     kelvin        = Unit('Kelvin'       ,'K'     ,'energy',K)
     celcius       = Unit('Celcius'      ,'degC'  ,'energy',degC,degC_shift)
     fahrenheit    = Unit('Fahrenheit'   ,'degF'  ,'energy',degF,degF_shift)
@@ -149,6 +172,7 @@ class UnitConverter:
                           ('Ry',rydberg),\
                           ('Ha',hartree),\
                           ('kJ_mol',kJ_mole),\
+                          ('kcal_mol',kcal_mole),\
                           ('K',kelvin),\
                           ('degC',celcius),\
                           ('degF',fahrenheit),\
@@ -195,6 +219,7 @@ class UnitConverter:
                           ('Ry',rydberg),\
                           ('Ha',hartree),\
                           ('kJ_mol',kJ_mole),\
+                          ('kcal_mol',kcal_mole),\
                           ('K',kelvin),\
                           ('degC',celcius),\
                           ('degF',fahrenheit),\

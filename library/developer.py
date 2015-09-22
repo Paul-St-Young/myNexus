@@ -1,6 +1,82 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
 
 
+#====================================================================#
+#  developer.py                                                      #
+#    Defines developer environment.  Supplies base class for generic #
+#    development (Nexus or beyond)                                   #
+#                                                                    #
+#  Content summary:                                                  #
+#    log, warn, error                                                #
+#      Function interface to logging and error handling.             #
+#                                                                    #
+#    DevBase                                                         #
+#      Base class inheriting generic abilities for obj, etc.         #
+#      Allows for unimplemented functions.                           #
+#                                                                    #
+#    Void                                                            #
+#      Class instances used to represent missing elements.           #
+#      Execution stops when any action is performed on a Void object.#
+#                                                                    #
+#    unavailable                                                     #
+#      Function to create named void objects.                        #
+#      Used when imported entities do not exist on the local machine.#
+#      Allows execution tp proceed normally so long as none of these #
+#        non-existent entities are used during runtime execution.    #
+#      This enables the maximum amount of Nexus functionality to be  #
+#        accessed given the available modules.                       #
+#                                                                    #                                        
+#====================================================================#
+
+
+import sys
+import traceback
 from generic import obj
+from sys import exit
+exit_call = exit
+devlog    = sys.stdout
+
+def log(*items):
+    s=''
+    for item in items:
+        s+=str(item)+' '
+    #end for
+    s+='\n'
+    devlog.write(s)
+#end def log
+
+
+def warn(message,location,header=None,post_header=' Warning:'):
+    pad = 4*' '
+    if location is None:
+        header = 'warning:'
+    else:
+        header = location+' warning:'
+    #end if
+    log('\n  '+header)
+    log(pad+message.replace('\n','\n'+pad))
+#end def warn
+
+
+def error(message,location=None,exit=True,trace=True):
+    pad = 4*' '
+    if location is None:
+        header = 'error:'
+    else:
+        header = location+' error:'
+    #end if
+    log('\n  '+header)
+    log(pad+message.replace('\n','\n'+pad))
+    if exit:
+        log('  exiting.\n')
+        if trace:
+            traceback.print_stack()
+        #end if
+        exit_call()
+    #end if
+#end def error
 
 
 class DevBase(obj):

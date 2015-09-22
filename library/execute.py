@@ -1,3 +1,19 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  execute.py                                                        #
+#    Support for control of local process execution.                 #
+#                                                                    #
+#  Content summary:                                                  #
+#    execute                                                         #
+#      Execute an arbitrary shell command within the user            #
+#      environment of the local machine and wait for its completion. #
+#                                                                    #                                        
+#====================================================================#
+
 
 from subprocess import Popen,PIPE
 

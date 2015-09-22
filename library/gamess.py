@@ -1,3 +1,35 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  gamess.py                                                         #
+#    Nexus interface to the GAMESS simulation code.                  #
+#                                                                    #
+#  Content summary:                                                  #
+#    GamessInput                                                     #
+#      Input class for the GAMESS code.                              #
+#      Capable of reading/writing arbitrary GAMESS input files.      #
+#                                                                    #
+#    generate_gamess_input                                           #
+#      User function to create arbitrary GAMESS input.               #
+#                                                                    #
+#    KeywordGroup                                                    #
+#      Represents an arbitary keyword group in the input file.       #
+#                                                                    #
+#    KeywordSpecGroup                                                #
+#      Base class for specialized keyword groups.                    #
+#      Derived classes enforce the keyword specification.            #
+#      See ContrlGroup, SystemGroup, GuessGroup, ScfGroup,           #
+#        McscfGroup, DftGroup, GugdiaGroup, DrtGroup, CidrtGroup,    #
+#        and DetGroup                                                #
+#                                                                    #
+#    FormattedGroup                                                  #
+#      Represents strict machine-formatted input groups.             #
+#                                                                    #                                        
+#====================================================================#
+
 
 import os
 from numpy import array,ndarray,abs
@@ -50,7 +82,7 @@ class Gamess(Simulation):
     def check_result(self,result_name,sim):
         input = self.input 
         if result_name=='orbitals':
-            calculating_result = 'contrl' in input and 'scftyp' in input.contrl and input.contrl.scftyp in ('rhf','rohf','uhf')
+            calculating_result = 'contrl' in input and 'scftyp' in input.contrl and input.contrl.scftyp.lower() in ('rhf','rohf','uhf','mcscf','none')
         else:
             calculating_result = False
         #end if
@@ -60,14 +92,20 @@ class Gamess(Simulation):
 
     def get_result(self,result_name,sim):
         result = obj()
+        input    = self.input
         analyzer = self.load_analyzer_image()
         if result_name=='orbitals':
-            result.location = os.path.join(self.locdir,self.outfile)
-            result.vec = None
-            result.norbitals = 0
+            result.location  = os.path.join(self.locdir,self.outfile)
+            result.vec       = None # vec from punch
+            result.norbitals = 0    # orbital count in punch
+            result.mos       = 0    # orbital count (MO's) from log file
+            result.scftyp    = input.contrl.scftyp.lower()
+            if 'counts' in analyzer and 'mos' in analyzer.counts:
+                result.mos = analyzer.counts.mos
+            #end if
             if 'punch' in analyzer and 'vec' in analyzer.punch:
                 result.norbitals = analyzer.punch.norbitals
-                result.vec = analyzer.punch.vec
+                result.vec       = analyzer.punch.vec
             #end if
         else:
             self.error('ability to get result '+result_name+' has not been implemented')
@@ -85,9 +123,11 @@ class Gamess(Simulation):
             if not 'guess' in input:
                 input.guess = GuessGroup()
             #end if
+            input.guess.clear()
             input.guess.set(
                 guess = 'moread',
-                norb  = result.norbitals
+                norb  = result.norbitals,
+                prtmo = True
                 )
             input.vec = FormattedGroup(result.vec)
         else:

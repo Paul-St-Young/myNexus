@@ -1,7 +1,75 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  simulation.py                                                     #
+#    Provides base classes for simulation objects, including input   #
+#    and analysis.  The Simulation base class enables a large amount #
+#    of the functionality of Nexus, including workflow construction  #
+#    and monitoring, in tandem with the ProjectManager class.        #
+#                                                                    #
+#  Content summary:                                                  #
+#    SimulationInput                                                 #
+#      Abstract base class for simulation input.                     #
+#                                                                    #
+#    SimulationAnalyzer                                              #
+#      Abstract base class for simulation data analysis.             #
+#                                                                    #
+#    Simulation                                                      #
+#      Major Nexus class representing a simulation prior to, during, #
+#      and after execution.  Checks dependencies between simulations #
+#      connected in workflows, manages input file writing,           #
+#      participates in job submission, checks for successful         #
+#      simulation completion, and analyzes output data.  Saves state #
+#      image of simulation progress regularly.  Contains             #
+#      SimulationInput, SimulationAnalyzer, and Job objects (also    #
+#      optionally contains a PhysicalSystem object).  Derived        #
+#      classes tailor specific functions such as passing dependency  #
+#      data and checking simulation state to a target simulation     #
+#      code.  Derived classes include Qmcpack, Pwscf, Vasp, Gamess,  #
+#      Opium, Sqd, Convert4qmc, Wfconvert, Pw2qmcpack, Pw2casino,    #
+#      SimulationBundle, and TemplateSimulation.                     #
+#                                                                    #
+#    NullSimulationInput                                             #
+#      Simulation input class intended for codes that do not use an  #
+#      input file.                                                   #
+#                                                                    #
+#    NullSimulationAnalyzer                                          #
+#      Simulation input class intended for codes that do not produce #
+#      or need to analyze output data.                               #
+#                                                                    #
+#    SimulationInputTemplate                                         #
+#      Supports template input files.  A template input file is a    #
+#      standard text input file provided by the user that optionally #
+#      has specially marked keywords.  Using find and replace        #
+#      operations, Nexus can produce variations on the template      #
+#      input file (e.g. to scan over a parameter).  In this way      #
+#      Nexus can drive codes that do not have specialized classes    #
+#      derived from Simulation, SimulationInput, or                  #
+#      SimulationAnalyzer.                                           #
+#                                                                    #
+#    SimulationInputMultiTemplate                                    #
+#      Supports templated input files for codes that take many       #
+#      different files as input (VASP is an example of this).  The   #
+#      multi-template is essentially a collection of individual      #
+#      template input files.                                         #
+#                                                                    #
+#    input_template                                                  #
+#      User-facing function to create SimulationInputTemplate's.     #
+#                                                                    #
+#    multi_input_template                                            #
+#      User-facing function to create SimulationInputMultiTemplate's.#
+#                                                                    #
+#====================================================================#
+
+
 import os
 import shutil
 import string
 from generic import obj
+from periodic_table import is_element
 from physical_system import PhysicalSystem
 from machines import Job
 from project_base import Pobj
@@ -129,7 +197,7 @@ class Simulation(Pobj):
                      'ordered_dependencies','dependents','dependency_ids',
                      'wait_ids','input','locdir','remdir','resdir',
                      'imlocdir','imremdir','imresdir',
-                     'skip_submit','job','system'])
+                     'skip_submit','job','system','temp'])
     sim_count = 0
 
 
@@ -150,7 +218,7 @@ class Simulation(Pobj):
         inp_args = obj()
         sim_args.transfer_from(kwargs,sim_kw)
         inp_args.transfer_from(kwargs,inp_kw)
-        if 'pseudos' in inp_args:
+        if 'pseudos' in inp_args and inp_args.pseudos!=None:
             pseudos = inp_args.pseudos
             if copy_pseudos:
                 if 'files' in sim_args:
@@ -165,13 +233,14 @@ class Simulation(Pobj):
                 if not isinstance(system,PhysicalSystem):
                     Simulation.class_error('system object must be of type PhysicalSystem')
                 #end if
+                species_labels,species = system.structure.species(symbol=True)
                 pseudopotentials = Simulation.pseudopotentials
                 for ppfile in pseudos:
                     if not ppfile in pseudopotentials:
                         Simulation.class_error('pseudopotential file {0} cannot be found'.format(ppfile))
                     #end if
                     pp = pseudopotentials[ppfile]
-                    if not pp.element in system.structure.elem:
+                    if not pp.element_label in species_labels and not pp.element in species:
                         Simulation.class_error('the element {0} for pseudopotential file {1} is not in the physical system provided'.format(pp.element,ppfile))
                     #end if
                 #end for
@@ -224,10 +293,15 @@ class Simulation(Pobj):
         self.loaded         = False
         self.ordered_dependencies = []
         self.process_id     = None
+        self.infile         = None
+        self.outfile        = None
+        self.errfile        = None
 
         #variables determined by derived classes
         self.outputs = None  #object representing output data 
                              # accessed by dependents when calling get_dependencies
+
+        self.temp = obj() # temporary storage, not saved
 
         self.set(**kwargs)
         self.set_directories()
@@ -317,9 +391,15 @@ class Simulation(Pobj):
 
 
     def set_files(self):
-        self.infile  = self.identifier + self.infile_extension
-        self.outfile = self.identifier + self.outfile_extension
-        self.errfile = self.identifier + self.errfile_extension
+        if self.infile is None:
+            self.infile  = self.identifier + self.infile_extension
+        #end if
+        if self.outfile is None:
+            self.outfile = self.identifier + self.outfile_extension
+        #end if
+        if self.errfile is None:
+            self.errfile = self.identifier + self.errfile_extension
+        #end if
     #end def set_files
 
 
@@ -1056,6 +1136,39 @@ class NullSimulationAnalyzer(SimulationAnalyzer):
 
 
 
+class GenericSimulation(Simulation):
+    preserve = set(list(Simulation.preserve)+['input_type','analyzer_type'])
+
+    def __init__(self,**kwargs):
+        self.input_type    = NullSimulationInput
+        self.analyzer_type = NullSimulationAnalyzer
+        if 'input_type' in kwargs:
+            self.input_type = kwargs['input_type']
+            del kwargs['input_type']
+        #end if
+        if 'analyzer_type' in kwargs:
+            self.input_type = kwargs['analyzer_type']
+            del kwargs['analyzer_type']
+        #end if
+        if 'input' in kwargs:
+            self.input_type = kwargs['input'].__class__
+        #end if
+        if 'analyzer' in kwargs:
+            self.input_type = kwargs['analyzer'].__class__
+        #end if
+        Simulation.__init__(self,**kwargs)
+    #end def __init__
+
+    def check_sim_status(self):
+        self.finished = True
+    #end def check_sim_status
+
+    def get_output_files(self):
+        return []
+    #end def get_output_files
+#end class GenericSimulation
+
+
 
 class SimulationInputTemplate(SimulationInput):
     name_chars = string.ascii_letters+string.digits+'_'
@@ -1193,6 +1306,16 @@ class SimulationInputTemplate(SimulationInput):
         contents = self.fillout()
         return contents
     #end def write_contents
+
+    
+    def read_text(self,*args,**kwargs):
+        return self.read_contents(*args,**kwargs)
+    #end def read_text
+
+
+    def write_text(self,*args,**kwargs):
+        return self.write_contents(*args,**kwargs)
+    #end def write_text
 
 
     def keywords_remaining(self):
@@ -1365,5 +1488,28 @@ def input_template(*args,**kwargs):
 
 def multi_input_template(*args,**kwargs):
     return SimulationInputMultiTemplate(*args,**kwargs)
-#end def input_template
+#end def multi_input_template
 
+
+def generate_template_input(*args,**kwargs):
+    return SimulationInputTemplate(*args,**kwargs)
+#end def generate_template_input
+
+
+def generate_multi_template_input(*args,**kwargs):
+    return SimulationInputMultiTemplate(*args,**kwargs)
+#end def generate_multi_template_input
+
+
+def generate_simulation(**kwargs):
+    sim_type='generic'
+    if 'sim_type' in kwargs:
+        sim_type = kwargs['sim_type']
+        del kwargs['sim_type']
+    #end if
+    if sim_type=='generic':
+        return GenericSimulation(**kwargs)
+    else:
+        Simulation.class_error('sim_type {0} is unrecognized'.format(sim_type),'generate_simulation')
+    #end if
+#end def generate_simulation

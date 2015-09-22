@@ -1,3 +1,25 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  qmcpack_analyzer.py                                               #
+#    Supports data analysis for QMCPACK output.                      #
+#                                                                    #
+#  Content summary:                                                  #
+#    QmcpackAnalyzer                                                 #
+#      SimulationAnalyzer class for QMCPACK.                         #
+#                                                                    #
+#    QmcpackCapabilities                                             #
+#      Class to pair QMCPACK output data with analyzer classes.      #
+#                                                                    #
+#    QmcpackAnalysisRequest                                          #
+#      Offers detailed control over analysis.                        #
+#      Serves as a record of requested analysis.                     #
+#                                                                    #
+#====================================================================#
+
 
 #
 # bugs
@@ -58,7 +80,7 @@ class QmcpackAnalyzerCapabilities(QAobject):
 
         self.methods=set(['opt','vmc','dmc','rmc'])
         self.data_sources = set(['scalar','stat','dmc','storeconfig','opt','traces'])
-        self.scalars=set(['localenergy','localpotential','kinetic','elecelec','localecp','nonlocalecp','ionion','localenergy_sq','acceptratio','blockcpu','blockweight'])
+        self.scalars=set(['localenergy','localpotential','kinetic','elecelec','localecp','nonlocalecp','ionion','localenergy_sq','acceptratio','blockcpu','blockweight','mpc','kecorr'])
         self.fields=set(['energydensity','density','dm1b','spindensity','structurefactor'])
 
         hdf_data_sources = set(['stat','storeconfig','traces'])
@@ -78,7 +100,7 @@ class QmcpackAnalyzerCapabilities(QAobject):
             spindensity     = SpinDensityAnalyzer,
             structurefactor = StructureFactorAnalyzer,
             density         = DensityAnalyzer
-        )
+            )
 
         self.quantities = self.scalars | self.fields
 
@@ -300,7 +322,8 @@ class QmcpackAnalyzer(SimulationAnalyzer,QAanalyzer):
             #end if
         elif self.info.type=='single':
             resdir,infile = os.path.split(request.source)
-            ifprefix = infile.replace('.xml','')
+            #ifprefix = infile.replace('.xml','')
+            ifprefix = infile.replace('.xml','.')
             ls = os.listdir(resdir)
             for filename in ls:
                 if filename.startswith(ifprefix) and filename.endswith('.qmc'):

@@ -3,6 +3,46 @@
 ##################################################################
 
 
+#====================================================================#
+#  machines.py                                                       #
+#    Representations of local machine environments including         #
+#    workstations and supercomputers and the jobs that will be       #
+#    executed on them.                                               #
+#                                                                    #
+#  Content summary:                                                  #
+#    Job                                                             #
+#      Class to represent a generic simulation job.                  #
+#                                                                    #
+#    Machine                                                         #
+#      Represents a generic machine.                                 #
+#      Base class for specific machine types.                        #
+#                                                                    #
+#    Workstation                                                     #
+#      Represents a workstation with a fixed number of cores.        #
+#                                                                    #
+#    InteractiveCluster                                              #
+#      Represents a supercomputer in interactive mode.               #
+#      Similar to a workstation with many cores.                     #
+#                                                                    #
+#    Supercomputer                                                   #
+#      Represents a generic supercomputer with a batch queue.        #
+#      Base class for specific supercomputers.                       #
+#      See Jaguar, Kraken, Taub, OIC5, Hopper, Edison, BlueWatersXE, #
+#        BlueWatersXK, Titan, EOS, Vesta, Cetus, Mira, Lonestar,     #
+#        Matisse, Komodo, and Amos                                   #
+#                                                                    #
+#    cpu_count                                                       #
+#      Function to return the number of cores on the local machine.  #
+#                                                                    #
+#    Options                                                         #
+#      Class representing command line options for a simulation job, #
+#      including arguments to the simulation executable,             #
+#      the run launcher (aprun/mpirun, etc), and the job submitter   #
+#      (e.g. qsub).                                                  #
+#                                                                    #                                        
+#====================================================================#
+
+
 import os
 import time
 #from multiprocessing import cpu_count
@@ -1042,6 +1082,11 @@ class Supercomputer(Machine):
         elif self.queue_querier=='qstata':
             #already gives status as queued, running, etc.
             None
+	elif self.queue_querier=='showq':
+            self.job_states=dict(Running = 'running',
+                                 Waiting = 'waiting',
+                                 Completed = 'complete'
+                                )
         elif  self.queue_querier=='squeue':
             self.job_states=dict(CG = 'exiting',
                                  TO = 'timeout',
@@ -1250,6 +1295,24 @@ class Supercomputer(Machine):
                     if spid.isdigit() and len(tokens)==6:
                         pid = int(spid)
                         jid,uname,wtime,nodes,status,loc = tokens
+                        self.system_queue[pid] = status
+                    #end if
+                #end if
+            #end for
+        elif self.queue_querier=='showq':
+            out,err = Popen('showq',shell=True,stdout=PIPE,stderr=PIPE,close_fds=True).communicate()            
+            lines = out.splitlines()
+            for line in lines:
+                tokens=line.split()
+                if len(tokens)>0:
+                    if '.' in tokens[0]:
+                        spid = tokens[0].split('.')[0]
+                    else:
+                        spid = tokens[0]
+                    #endif
+                    if spid.isdigit() and len(tokens)==7:
+                        pid = int(spid)
+                        jid,jname,uname,status,rtime,cores,etime = tokens
                         self.system_queue[pid] = status
                     #end if
                 #end if
@@ -1565,7 +1628,7 @@ class Taub(Supercomputer):
     
     def write_job_header(self,job):
         if job.queue is None:
-            job.queue='secondary'
+            job.queue='cse'
         #end if
         c=''
         c+='#PBS -q '+job.queue+'\n'
@@ -1585,6 +1648,8 @@ export MPICH_MAX_SHORT_MSG_SIZE=1024
 export MPICH_PTL_UNEX_EVENTS=800000
 export MPICH_UNEX_BUFFER_SIZE=16M
 export MPI_MSGS_PER_PROC=32768
+
+module load mvapich2/1.6-intel
 '''
         return c
     #end def write_job_header
@@ -1772,34 +1837,6 @@ cd $PBS_O_WORKDIR
 #end class BlueWatersXE
 
 
-class SuperMIC(Supercomputer):
-    
-    name = 'supermic'
-    requires_account = True
-    batch_capable    = True
-
-    def write_job_header(self,job):
-        if job.queue is None:
-            job.queue = 'workq'
-        #end if
-        c= '#!/bin/bash\n'
-        c+='#PBS -A {0}\n'.format(job.account)
-        c+='#PBS -q {0}\n'.format(job.queue)
-        c+='#PBS -N {0}\n'.format(job.name)
-        c+='#PBS -o {0}\n'.format(job.outfile)
-        c+='#PBS -e {0}\n'.format(job.errfile)
-        c+='#PBS -l walltime={0}\n'.format(job.pbs_walltime())
-        c+='#PBS -l nodes={0}:ppn={1}\n'.format(job.nodes,job.ppn)
-        if job.user_env:
-            c+='#PBS -V\n'
-        #end if
-        c+='''
-echo $PBS_O_WORKDIR
-cd $PBS_O_WORKDIR
-'''
-        return c
-    #end def write_job_header
-#end class SuperMIC
 
 
 class Titan(Supercomputer):
@@ -1833,6 +1870,34 @@ cd $PBS_O_WORKDIR
     #end def write_job_header
 #end class Titan
 
+class SuperMIC(Supercomputer):
+
+    name = 'supermic'
+    requires_account = True
+    batch_capable    = True
+
+    def write_job_header(self,job):
+        if job.queue is None:
+            job.queue = 'workq'
+        #end if
+        c= '#!/bin/bash\n'
+        c+='#PBS -A {0}\n'.format(job.account)
+        c+='#PBS -q {0}\n'.format(job.queue)
+        c+='#PBS -N {0}\n'.format(job.name)
+        c+='#PBS -o {0}\n'.format(job.outfile)
+        c+='#PBS -e {0}\n'.format(job.errfile)
+        c+='#PBS -l walltime={0}\n'.format(job.pbs_walltime())
+        c+='#PBS -l nodes={0}:ppn={1}\n'.format(job.nodes,job.ppn)
+        if job.user_env:
+            c+='#PBS -V\n'
+        #end if
+        c+='''
+echo $PBS_O_WORKDIR
+cd $PBS_O_WORKDIR
+'''
+        return c
+    #end def write_job_header
+#end class SuperMIC
 
 
 class EOS(Supercomputer):
@@ -1935,6 +2000,46 @@ class Mira(ALCF_Machine):
     base_partition = 512
 #end class Mira
 
+class Stampede(Supercomputer):  # Stampede contribution from Paul Young
+
+    name = 'stampede' # will be converted to lowercase anyway
+    requires_account = False
+    batch_capable    = True
+
+    def write_job_header(self,job):
+        if job.queue is None:
+            job.queue = 'normal'
+        #end if
+        c= '#!/bin/bash\n'
+        #c+='#$ -A {0}\n'.format(job.account)
+        c+='#SBATCH -p {0}\n'.format(job.queue)
+        c+='#SBATCH -J {0}\n'.format(job.name)
+        c+='#SBATCH -n {0}\n'.format(job.nodes*16)
+        c+='#SBATCH -o {0}\n'.format(job.outfile)
+        c+='#SBATCH -e {0}\n'.format(job.errfile)
+        c+='#SBATCH -t {0}\n'.format(job.pbs_walltime())
+        c+='''
+module load espresso
+'''
+        return c
+    #end def write_job_header
+
+    def read_process_id(self,output):
+        pid = None
+        lines = output.splitlines()
+        
+        for line in lines:
+            if 'Submitted batch job' in line:
+                spid = line.split()[-1]
+                if spid.isdigit():
+                    pid = int(spid)
+                #end if
+            #end if
+        #end for
+        return pid
+    #end def read_process_id
+
+#end class Stampede
 
 
 class Lonestar(Supercomputer):  # Lonestar contribution from Paul Young
@@ -2103,19 +2208,20 @@ for cores in range(1,128+1):
 #            nodes sockets cores ram qslots  qlaunch  qsubmit     qstatus   qdelete
 Jaguar(      18688,   2,     8,   32,  100,  'aprun',   'qsub',   'qstat',    'qdel')
 Kraken(       9408,   2,     6,   16,  100,  'aprun',   'qsub',   'qstat',    'qdel')
-Taub(          312,   2,    10,   64,   50, 'mpirun',   'qsub',   'qstat',    'qdel')
+Taub(          400,   2,     6,   24,   50, 'mpirun',   'qsub',   'qstat',    'qdel')
 OIC5(           28,   2,    16,  128, 1000, 'mpirun',   'qsub',   'qstat',    'qdel')
 Hopper(       6384,   2,    12,   64, 1000,  'aprun',   'qsub',   'qstat',    'qdel')
 Edison(        664,   2,    12,   64,  100,  'aprun',   'qsub',   'qstat',    'qdel')
 BlueWatersXK( 3072,   1,    16,   32,  100,  'aprun',   'qsub',   'qstat',    'qdel')
 BlueWatersXE(22640,   2,    16,   64,  100,  'aprun',   'qsub',   'qstat',    'qdel')
-SuperMIC(      360,   2,    10,   64,  100, 'mpirun',   'qsub',   'qstat',    'qdel')
 Titan(       18688,   1,    16,   32,  100,  'aprun',   'qsub',   'qstat',    'qdel')
+SuperMIC(      360,   2,    10,   64,  100, 'mpirun',   'qsub',   'qstat',    'qdel')
 EOS(           744,   2,     8,   64, 1000,  'aprun',   'qsub',   'qstat',    'qdel')
 Vesta(        2048,   1,    16,   16,   10, 'runjob',   'qsub',  'qstata',    'qdel')
 Cetus(        1024,   1,    16,   16,   10, 'runjob',   'qsub',  'qstata',    'qdel')
 Mira(        49152,   1,    16,   16,   10, 'runjob',   'qsub',  'qstata',    'qdel')
 Lonestar(    22656,   2,     6,   12,  128,  'ibrun',   'qsub',   'qstat',    'qdel')
+Stampede(     6400,   2,     8,   32,  128,  'ibrun', 'sbatch',   'showq', 'scancel')
 Matisse(        20,   2,     8,   64,    2, 'mpirun', 'sbatch',   'sacct', 'scancel')
 Komodo(         24,   2,     6,   48,    2, 'mpirun', 'sbatch',   'sacct', 'scancel')
 Amos(         5120,   1,    16,   16,  128,   'srun', 'sbatch',   'sacct', 'scancel')
@@ -2124,4 +2230,5 @@ Amos(         5120,   1,    16,   16,  128,   'srun', 'sbatch',   'sacct', 'scan
 get_machine_name = Machine.get_hostname
 get_machine      = Machine.get
 
-
+#rename Job with lowercase
+job=Job

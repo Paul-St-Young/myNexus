@@ -1,3 +1,18 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  graph.py                                                          #
+#    Interface with pydot to make images of directed graphs.         #
+#                                                                    #
+#  Content summary:                                                  #
+#    Graph                                                           #
+#      Wrapper class for pydot functionality                         #
+#                                                                    #                                        
+#====================================================================#
+
 
 from generic import obj
 from developer import DevBase,unavailable

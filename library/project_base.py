@@ -1,3 +1,20 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  project_base.py                                                   #
+#    Provides base class functionality and access to 'global' data   #
+#    for core Nexus classes.                                         #
+#                                                                    #
+#  Content summary:                                                  #
+#    Pobj                                                            #
+#      Base class for core Nexus classes.                            #
+#      'Global' data is assigned by the Settings class.              #
+#                                                                    #
+#====================================================================#
+
 
 import os
 import traceback

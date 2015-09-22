@@ -1,3 +1,60 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  extended_numpy.py                                                 #
+#    Extension of functionality available in numpy plus various      #
+#    numerical functions.  To be merged into numerics.py             #
+#                                                                    #
+#  Content summary:                                                  #
+#    ndgrid                                                          #
+#      Function to construct an arbitrary N-dimensional grid.        #
+#      Similar to ndgrid from MATLAB.                                #
+#                                                                    #
+#    simstats                                                        #
+#      Compute statistics of N-dimensional Monte Carlo simulation    #
+#      data, including mean, variance, error, and autocorrelation.   #
+#                                                                    #
+#    simplestats                                                     #
+#      Compute error assuming uncorrelated data.                     #
+#                                                                    #
+#    equilibration_length                                            #
+#      Estimate equilibration point of Monte Carlo time series data  #
+#      using a heuristic algorithm.                                  #
+#                                                                    #
+#    ttest                                                           #
+#      Implementation of Student's T-test                            #
+#                                                                    #
+#    surface_normals                                                 #
+#      Compute vectors normal to a parametric surface.               #
+#                                                                    #
+#    simple_surface                                                  #
+#      Create a parametric surface in Cartesian, cylindrical, or     #
+#      spherical coordinates.                                        #
+#                                                                    #
+#    func_fit                                                        #
+#      Perform a fit to an arbitrary function using an arbitrary     #
+#      cost metric (e.g. least squares).                             #
+#                                                                    #
+#    distance_table                                                  #
+#      Calculate all N^2 pair distances for a set of N points.       #
+#                                                                    #
+#    nearest_neighbors                                               #
+#      Find k nearest neighbors of N points using a fast algorithm.  #
+#                                                                    #
+#    voronoi_neighbors                                               #
+#      Find nearest neighbors in the Voronoi sense, that is for      #
+#      each point, find the points whose Voronoi polyhedra contact   #
+#      the Voronoi polyhedron of that point.                         #
+#                                                                    #
+#    convex_hull                                                     #
+#      Find the convex hull of a set of points in N dimensions.      #
+#                                                                    #                                        
+#====================================================================#
+
+
 import sys
 
 from numpy import *
@@ -7,13 +64,12 @@ from developer import unavailable
 try:
     from scipy.special import betainc
     from scipy.optimize import fmin
-    from scipy.spatial import KDTree,Delaunay
+    from scipy.spatial import KDTree,Delaunay,Voronoi
     scipy_unavailable = False
 except ImportError:
     betainc = unavailable('scipy.special' ,'betainc')
     fmin    = unavailable('scipy.optimize','fmin')
-    KDTree  = unavailable('scipy.special' ,'KDTree')
-    Delaunay  = unavailable('scipy.special' ,'Delaunay')
+    KDTree,Delaunay,Voronoi  = unavailable('scipy.spatial' ,'KDTree','Delaunay','Voronoi')
     scipy_unavailable = True
 #end try
 
@@ -596,6 +652,13 @@ def nearest_neighbors(n,points,qpoints=None,return_distances=False,slow=False):
         return nn,dist
     #end if
 #end def nearest_neighbors
+
+
+def voronoi_neighbors(points):
+    vor = Voronoi(points)
+    neighbor_pairs = vor.ridge_points
+    return neighbor_pairs
+#end def voronoi_neighbors
 
 
 def convex_hull(points,dimension=None,tol=None):

@@ -1,3 +1,31 @@
+##################################################################
+##  (c) Copyright 2015-  by Jaron T. Krogel                     ##
+##################################################################
+
+
+#====================================================================#
+#  pw2qmcpack.py                                                     #
+#    Nexus interface for the pw2qmcpack tool distributed with PWSCF. #
+#    pseudopotentials between file formats.                          #
+#                                                                    #
+#  Content summary:                                                  #
+#    generate_pw2qmcpack                                             #
+#      User-facing function to create pw2qmcpack simulation objects. #
+#                                                                    #
+#    generate_pw2qmcpack_input                                       #
+#      User-facing funcion to create input for pw2qmcpack.           #
+#                                                                    #
+#    Pw2qmcpack                                                      #
+#      Simulation class for pw2qmcpack.                              #
+#                                                                    #
+#    Pw2qmcpackInput                                                 #
+#      SimulationInput class for pw2qmcpack.                         #
+#                                                                    #
+#    Pw2qmcpackAnalyzer                                              #
+#      SimulationAnalyzer class for pw2qmcpack.                      #
+#                                                                    #
+#====================================================================#
+
 
 import os
 from generic import obj
