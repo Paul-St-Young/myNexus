@@ -896,7 +896,7 @@ class Simulation(Pobj):
 
     def progress(self,dependency_id=None):
         self.tlog('progress',self.simid,n=2)
-        if dependency_id!=None:
+        if dependency_id!=None and dependency_id in self.wait_ids:
             self.dlog('wid',self.wait_ids,n=3)
             self.wait_ids.remove(dependency_id)
         #end if
@@ -1017,7 +1017,7 @@ class Simulation(Pobj):
 
 
     def traverse_cascade(self,operation,*args,**kwargs):
-        if 'dependency_id' in kwargs:
+        if 'dependency_id' in kwargs and kwargs['dependency_id'] in self.wait_ids:
             self.wait_ids.remove(kwargs['dependency_id'])
             del kwargs['dependency_id']
         #end if
