@@ -290,6 +290,30 @@ class PwscfAnalyzer(SimulationAnalyzer):
         #end
 
         try:
+            stress = []
+            nlines = len(lines)
+            i=0
+            while i<nlines:
+                l = lines[i]
+                if l.find('total   stress')!=-1:
+                    for j in range(3):
+                        i+=1
+                        tokens = lines[i].split()
+                        stress.append(map(float,tokens))
+                    # end for j
+                # end found
+                i += 1
+            # end while
+            self.stress=stress
+        except:
+            nx+=1
+            if self.info.warn:
+                self.warn('stress read failed')
+            #end if
+        #end
+            
+
+        try:
             press= 0.
             vol=   0.
             for l in lines:
