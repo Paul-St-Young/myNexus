@@ -233,6 +233,41 @@ class PwscfAnalyzer(SimulationAnalyzer):
         #end try
 
         try:
+            cells = obj()
+            i=0
+            found = False
+            while i<len(lines):
+                l = lines[i]
+                if l.find('CELL_PARAMETERS')!=-1:
+                    found = True
+                    self.alat=float(l.split()[2][:-2])
+                    conf = obj()
+                    positions = []
+                    i+=1
+                    tokens = lines[i].split()
+
+                    while len(tokens)>0 and tokens[0].lower()!='end' and len(tokens)==3:
+                        positions.append(array(tokens[0:3],dtype=float))
+                        i+=1
+                        tokens = lines[i].split()
+                    #end while
+                    conf.positions = array(positions)
+                    nconf = len(cells)
+                    cells[nconf]=conf
+                #end if
+                i+=1
+            #end while
+            if found:
+                self.cells = cells
+            #end if
+        except:
+            nx+=1
+            if self.info.warn:
+                self.warn('structure read failed')
+            #end if
+        #end try
+
+        try:
             forces = []
             tot_forces = []
             i=0
@@ -318,14 +353,15 @@ class PwscfAnalyzer(SimulationAnalyzer):
             vol=   0.
             for l in lines:
                 if l.find('unit-cell volume')!=-1:
+                    #vol = float( l.split('=')[-1].split()[-2] )
                     vol = l.split('=')[-1].split()[-2]
                 # end if
                 if (l.find('total')!=-1) and (l.find('stress')!=-1):
-                    press=l.split('=')[-1]
+                    press= l.split('=')[-1]
                 # end if
             # end for
-            self.pressure = press
-            self.volume   = vol
+            self.pressure = float(press)
+            self.volume   = float(vol)
         except:
             nx+=1
             if self.info.warn:
