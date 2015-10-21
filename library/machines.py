@@ -305,6 +305,9 @@ class Job(Pobj):
         self.batch_mode = machine.in_batch_mode()
 
         if bundled_jobs!=None: 
+            # !!!! hack to enable bundle jobs that request different nodes
+            for job in bundled_jobs: machine.process_job(job)
+            # end hack !!!!
             if not machine.batch_capable:
                 self.error('running batched/bundled jobs on {0} is either not possible or not yet implemented, sorry.'.format(machine.name))
             #end if
