@@ -902,6 +902,7 @@ class PwscfInput(SimulationInput):
             if len(l)>0 and l[0]!='!':
                 tokens = l.split()
                 if l.startswith('&'):
+                    l=l.strip('/').strip(" ")
                     if l[1:].lower() in self.sections:
                         prev_type = elem_type
                         in_element = True
