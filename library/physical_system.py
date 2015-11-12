@@ -562,6 +562,19 @@ class PhysicalSystem(Matter):
         #end for
         return elem
     #end def large_Zeff_elem
+
+
+    def ae_pp_species(self):
+        species = set(self.structure.elem)
+        if self.pseudized:
+            pp_species = set(self.valency.keys())
+            ae_species = species-pp_species
+        else:
+            pp_species = set()
+            ae_species = species
+        #end if
+        return ae_species,pp_species
+    #end def ae_pp_species
 #end class PhysicalSystem
 
 
@@ -585,12 +598,12 @@ def generate_physical_system(**kwargs):
         #end if
     #end for
     type = kwargs['type']
-    if type=='atom' or type=='dimer':
+    if type=='atom' or type=='dimer' or type=='trimer':
         del kwargs['kshift']
         del kwargs['tiling']
-        if not 'units' in kwargs:
-            kwargs['units'] = 'B'
-        #end if
+        #if not 'units' in kwargs:
+        #    kwargs['units'] = 'B'
+        ##end if
         tiling = None
     else:
         tiling = kwargs['tiling']
