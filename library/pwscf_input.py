@@ -534,6 +534,12 @@ class atomic_species(Card):
         #end for
         return c
     #end def write_text
+
+    def _add_attributes(self,**variables):
+      pass
+      #self.not_implemented()
+    # end def _add_attributes
+
 #end class atomic_species
 
 
@@ -564,6 +570,10 @@ class atomic_positions(Card):
         #end if
     #end def read_text
 
+    def _add_attributes(self,**variables):
+      pass
+      #self.not_implemented()
+    # end def _add_attributes
 
     def write_text(self):
         c = ''
