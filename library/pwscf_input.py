@@ -919,8 +919,9 @@ class PwscfInput(SimulationInput):
                         elem_type = 'section'
                         c=[]
                     else:
-                        print 'PwscfInput Error: '+l[1:]+' is not a recognized pwscf section, exiting.'
-                        exit()
+                        print 'PwscfInput Error: '+l[1:]+' is not a recognized pwscf section, passing.'
+                        #exit()
+                        pass
                     #end if
                 elif tokens[0].lower() in self.cards and '=' not in l:
                     if elem_type == 'card':
