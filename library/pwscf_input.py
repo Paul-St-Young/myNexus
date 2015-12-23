@@ -912,6 +912,7 @@ class PwscfInput(SimulationInput):
             if len(l)>0 and l[0]!='!':
                 tokens = l.split()
                 if l.startswith('&'):
+                    l=l.strip('/').strip(" ") # allow all default section such as &ions /
                     if l[1:].lower() in self.sections:
                         prev_type = elem_type
                         in_element = True
@@ -919,9 +920,8 @@ class PwscfInput(SimulationInput):
                         elem_type = 'section'
                         c=[]
                     else:
-                        print 'PwscfInput Error: '+l[1:]+' is not a recognized pwscf section, passing.'
-                        #exit()
-                        pass
+                        print 'PwscfInput Error: '+l[1:]+' is not a recognized pwscf section, exiting.'
+                        exit()
                     #end if
                 elif tokens[0].lower() in self.cards and '=' not in l:
                     if elem_type == 'card':
