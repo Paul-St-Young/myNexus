@@ -687,6 +687,13 @@ class BasisGroup(KeywordSpecGroup):
 #end class BasisGroup
 
 
+class ZMATGroup(KeywordSpecGroup):
+    bools    = set(['dlc','auto'])
+    #arrays   = set(['izmat','nonvdw','ixzmat','irzmat','ifzmat','fvalue','sij','ijs'])
+    arrays   = set(['izmat(1)','nonvdw(1)','ixzmat(1)','irzmat(1)','ifzmat(1)','fvalue(1)','sij(1)','ijs(1)'])
+#end class ZMATGroup
+
+
 
 #class XGroup(KeywordSpecGroup):
 #    keywords = set([''])
@@ -735,7 +742,7 @@ class GamessInput(SimulationInput,GIbase):
     all_groups = set(group_order)
 
     key_groups  = set(['contrl','system','guess','scf','mcscf','dft',
-                       'gugdia','drt','cidrt','det','basis'])
+                       'gugdia','drt','cidrt','det','basis','zmat'])
 
     card_groups = set()
     #card_groups = set(['ecp','data','mcp','gcilst','points','stone','efrag',
@@ -756,7 +763,8 @@ class GamessInput(SimulationInput,GIbase):
         drt    = DrtGroup,
         cidrt  = CidrtGroup,
         det    = DetGroup,
-        basis  = BasisGroup
+        basis  = BasisGroup,
+        zmat   = ZMATGroup
         )
     keyspec_group_order = []
     for gname in group_order:
